@@ -1,18 +1,27 @@
 ﻿package com.example.demo.domain
 
-import org.springframework.data.annotation.CreatedDate
-import org.springframework.data.annotation.Id
-import org.springframework.data.annotation.LastModifiedDate
+import org.komapper.annotation.*
 import java.time.LocalDateTime
 
 data class Customer(
-    @Id
-    val id: Int? = null,
+    val id: Long = 0,
 
     val customerName: String,
 
-    @CreatedDate
-    val createdDate: LocalDateTime? = null,
-    @LastModifiedDate
-    val lastModifiedDate: LocalDateTime? = null
+    val version: Int = 0,
+    val createdAt: LocalDateTime? = null,
+    val updatedAt: LocalDateTime? = null,
+)
+
+@KomapperEntityDef(Customer::class)
+data class CustomerDef(
+    @KomapperId
+    @KomapperAutoIncrement
+    val id: Nothing,
+    @KomapperVersion
+    val version: Nothing,
+    @KomapperCreatedAt
+    val createdAt: LocalDateTime,
+    @KomapperUpdatedAt
+    val updatedAt: LocalDateTime,
 )

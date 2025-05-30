@@ -1,0 +1,78 @@
+spring:
+  application:
+    name: demo
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:9000
+  r2dbc:
+    #    url: r2dbc:pool:h2:mem:///example;DB_CLOSE_DELAY=-1
+    url: r2dbc:pool:postgresql://your_username:your_password@localhost:5432/database_name?initialSize=5&maxSize=100&statementTimeout=30s&sslMode=prefer&schema=public
+
+logging:
+  level:
+    org.zalando.logbook: info
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  health:
+    readinessstate:
+      enabled: true
+    livenessstate:
+      enabled: true
+
+swagger:
+  host: https//localhost:8080
+
+database:
+  drop: false
+  initialize: false
+
+  write:
+    protocol: postgresql
+    host: localhost
+    port: 5432
+    name: spring_demo_database
+    username: username
+    password: password
+    schema: public
+    pool:
+      initial-size: 5
+      min-idle: 5
+      max-idle-time: 30s
+
+  read:
+    protocol: postgresql
+    host: localhost
+    port: 5432
+    name: spring_demo_database
+    username: username
+    password: password
+    schema: public
+    pool:
+      initial-size: 5
+      min-idle: 5
+      max-idle-time: 30s
+
+  initial:
+    protocol: postgresql
+    host: localhost
+    port: 5432
+    username: username
+    password: password
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+swagger:
+  host: api.spring_demo_domain.com  # Production Host
+
+database:
+  host: prod-db-host
+  name: production_database

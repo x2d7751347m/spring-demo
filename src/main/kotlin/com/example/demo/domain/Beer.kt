@@ -1,14 +1,11 @@
 ﻿package com.example.demo.domain
 
-import org.springframework.data.annotation.CreatedDate
-import org.springframework.data.annotation.Id
-import org.springframework.data.annotation.LastModifiedDate
+import org.komapper.annotation.*
 import java.math.BigDecimal
 import java.time.LocalDateTime
 
 data class Beer(
-    @Id
-    val id: Int? = null,
+    val id: Long = 0,
 
     val beerName: String,
     val beerStyle: String,
@@ -16,8 +13,20 @@ data class Beer(
     val quantityOnHand: Int,
     val price: BigDecimal,
 
-    @CreatedDate
-    val createdDate: LocalDateTime? = null,
-    @LastModifiedDate
-    val lastModifiedDate: LocalDateTime? = null
+    val version: Int = 0,
+    val createdAt: LocalDateTime? = null,
+    val updatedAt: LocalDateTime? = null,
+)
+
+@KomapperEntityDef(Beer::class)
+data class BeerDef(
+    @KomapperId
+    @KomapperAutoIncrement
+    val id: Nothing,
+    @KomapperVersion
+    val version: Nothing,
+    @KomapperCreatedAt
+    val createdAt: LocalDateTime,
+    @KomapperUpdatedAt
+    val updatedAt: LocalDateTime,
 )

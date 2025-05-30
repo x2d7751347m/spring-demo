@@ -1,25 +1,73 @@
-﻿package com.example.demo.config
-
-import io.r2dbc.spi.ConnectionFactory
-import org.springframework.beans.factory.annotation.Value
+﻿import com.example.demo.properties.DatabaseProperties
+import com.example.demo.properties.InitialDatabaseProperties
+import io.r2dbc.spi.ConnectionFactoryOptions
+import io.r2dbc.spi.Option
+import org.komapper.r2dbc.R2dbcDatabase
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.core.io.Resource
-import org.springframework.data.r2dbc.config.EnableR2dbcAuditing
-import org.springframework.r2dbc.connection.init.ConnectionFactoryInitializer
-import org.springframework.r2dbc.connection.init.ResourceDatabasePopulator
+import org.springframework.context.annotation.Primary
 
 @Configuration
-@EnableR2dbcAuditing
-class DatabaseConfig {
-    @Value("classpath:/schema.sql")
-    var resource: Resource? = null
+class DatabaseConfig(
+    private val databaseProperties: DatabaseProperties,
+    private val initialDatabaseProperties: InitialDatabaseProperties,
+) {
 
     @Bean
-    fun initializer(connectionFactory: ConnectionFactory): ConnectionFactoryInitializer {
-        val initializer = ConnectionFactoryInitializer()
-        initializer.setConnectionFactory(connectionFactory)
-        initializer.setDatabasePopulator(ResourceDatabasePopulator(resource))
-        return initializer
+    @Primary
+    fun writeDatabase(): R2dbcDatabase {
+        val dbProps = databaseProperties.write
+        val databaseName = dbProps.name
+
+        val options = ConnectionFactoryOptions.builder()
+            .option(ConnectionFactoryOptions.DRIVER, "pool")
+            .option(ConnectionFactoryOptions.PROTOCOL, dbProps.protocol)
+            .option(ConnectionFactoryOptions.DATABASE, databaseName)
+            .option(ConnectionFactoryOptions.HOST, dbProps.host)
+            .option(ConnectionFactoryOptions.PORT, dbProps.port)
+            .option(ConnectionFactoryOptions.USER, dbProps.username)
+            .option(ConnectionFactoryOptions.PASSWORD, dbProps.password)
+            .option(Option.valueOf("schema"), dbProps.schema)
+            .option(Option.valueOf("initialSize"), dbProps.pool.initialSize)
+            .option(Option.valueOf("minIdle"), dbProps.pool.minIdle)
+            .option(Option.valueOf("maxIdleTime"), dbProps.pool.maxIdleTime)
+            .build()
+
+        return R2dbcDatabase(options)
+    }
+
+    @Bean
+    fun readDatabase(): R2dbcDatabase {
+        val dbProps = databaseProperties.read
+        val databaseName = dbProps.name
+
+        val options = ConnectionFactoryOptions.builder()
+            .option(ConnectionFactoryOptions.DRIVER, "pool")
+            .option(ConnectionFactoryOptions.PROTOCOL, dbProps.protocol)
+            .option(ConnectionFactoryOptions.DATABASE, databaseName)
+            .option(ConnectionFactoryOptions.HOST, dbProps.host)
+            .option(ConnectionFactoryOptions.PORT, dbProps.port)
+            .option(ConnectionFactoryOptions.USER, dbProps.username)
+            .option(ConnectionFactoryOptions.PASSWORD, dbProps.password)
+            .option(Option.valueOf("schema"), dbProps.schema)
+            .option(Option.valueOf("initialSize"), dbProps.pool.initialSize)
+            .option(Option.valueOf("minIdle"), dbProps.pool.minIdle)
+            .option(Option.valueOf("maxIdleTime"), dbProps.pool.maxIdleTime)
+            .build()
+
+        return R2dbcDatabase(options)
+    }
+
+    @Bean
+    fun initialR2dbcDatabase(): R2dbcDatabase {
+        val options = ConnectionFactoryOptions.builder()
+            .option(ConnectionFactoryOptions.DRIVER, initialDatabaseProperties.protocol)
+            .option(ConnectionFactoryOptions.HOST, initialDatabaseProperties.host)
+            .option(ConnectionFactoryOptions.PORT, initialDatabaseProperties.port)
+            .option(ConnectionFactoryOptions.USER, initialDatabaseProperties.username)
+            .option(ConnectionFactoryOptions.PASSWORD, initialDatabaseProperties.password)
+            .build()
+
+        return R2dbcDatabase(options)
     }
 }

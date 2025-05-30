@@ -7,6 +7,7 @@ plugins {
     id("io.spring.dependency-management") version "1.1.7"
     id("org.asciidoctor.jvm.convert") version "3.3.2"
     kotlin("kapt") version "2.1.21"
+    id("com.google.devtools.ksp") version "2.1.21-2.0.1"
 }
 
 group = "com.example"
@@ -32,8 +33,20 @@ val konform_version: String by project
 val awaitility_version: String by project
 val guava_version: String by project
 val logbook_version: String by project
+val springdoc_version: String by project
+val komapper_version: String by project
 
 dependencies {
+    platform("org.komapper:komapper-platform:$komapper_version").let {
+        implementation(it)
+        ksp(it)
+    }
+    implementation("org.komapper:komapper-starter-r2dbc")
+    implementation("org.komapper:komapper-dialect-h2-r2dbc")
+    implementation("org.komapper:komapper-dialect-postgresql-r2dbc")
+    ksp("org.komapper:komapper-processor")
+    runtimeOnly("org.komapper:komapper-slf4j")
+    implementation("org.komapper:komapper-spring-boot-starter-r2dbc:$komapper_version")
     implementation("org.mapstruct:mapstruct:$mapstruct_version")
     kapt("org.mapstruct:mapstruct-processor:$mapstruct_version")
     kaptTest("org.mapstruct:mapstruct-processor:$mapstruct_version")
@@ -49,20 +62,21 @@ dependencies {
     implementation("org.zalando:logbook-spring-boot-starter:$logbook_version")
     implementation("org.zalando:logbook-spring-boot-webflux-autoconfigure:$logbook_version")
     implementation("org.zalando:logbook-logstash:$logbook_version")
-	implementation("org.springframework.boot:spring-boot-starter-data-r2dbc")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
-//	implementation("io.r2dbc:r2dbc-pool:1.0.2.RELEASE")
+    implementation("org.springdoc:springdoc-openapi-starter-webflux-ui:${springdoc_version}")
+    implementation("io.r2dbc:r2dbc-pool:1.0.2.RELEASE")
 //	implementation("org.springframework.boot:spring-boot-starter-mail")
     implementation("org.springframework.boot:spring-boot-starter-quartz")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("io.projectreactor.kotlin:reactor-kotlin-extensions")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
-//	runtimeOnly("org.postgresql:postgresql")
-//	runtimeOnly("org.postgresql:r2dbc-postgresql")
+    runtimeOnly("org.postgresql:postgresql")
+    runtimeOnly("org.postgresql:r2dbc-postgresql")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("io.projectreactor:reactor-test")
@@ -70,9 +84,10 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test")
     testImplementation("org.springframework.restdocs:spring-restdocs-webtestclient")
     testImplementation("org.springframework.security:spring-security-test")
+    testImplementation("org.springframework.security:spring-security-oauth2-client")
     testImplementation("org.testcontainers:junit-jupiter")
-//	testImplementation("org.testcontainers:postgresql")
-//	testImplementation("org.testcontainers:r2dbc")
+    testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.testcontainers:r2dbc")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
