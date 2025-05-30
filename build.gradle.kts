@@ -31,6 +31,7 @@ val kotlinx_datetime_version: String by project
 val konform_version: String by project
 val awaitility_version: String by project
 val guava_version: String by project
+val logbook_version: String by project
 
 dependencies {
     implementation("org.mapstruct:mapstruct:$mapstruct_version")
@@ -45,7 +46,11 @@ dependencies {
     implementation("io.konform:konform-jvm:$konform_version")
     testImplementation("org.awaitility:awaitility-kotlin:$awaitility_version")
     implementation("com.google.guava:guava:$guava_version")
-//	implementation("org.springframework.boot:spring-boot-starter-data-r2dbc")
+    implementation("org.zalando:logbook-spring-boot-starter:$logbook_version")
+    implementation("org.zalando:logbook-spring-boot-webflux-autoconfigure:$logbook_version")
+    implementation("org.zalando:logbook-logstash:$logbook_version")
+	implementation("org.springframework.boot:spring-boot-starter-data-r2dbc")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
 //	implementation("io.r2dbc:r2dbc-pool:1.0.2.RELEASE")
 //	implementation("org.springframework.boot:spring-boot-starter-mail")
     implementation("org.springframework.boot:spring-boot-starter-quartz")
