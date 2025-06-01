@@ -33,9 +33,11 @@ import java.math.BigDecimal
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-@Testcontainers
+// The following two annotations are enabled if you use Testcontainers
+
+//@Testcontainers
+//@Import(TestContainersConfiguration::class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(TestContainersConfiguration::class)
 class InjectionTest {
 
     @Autowired
@@ -104,7 +106,7 @@ class InjectionTest {
 
     // CREATE Tests - Parameterized with various counts
     @ParameterizedTest
-    @ValueSource(ints = [ 5])
+    @ValueSource(ints = [5])
     fun `POST createNewBeers should create random beers successfully for various counts`(count: Int) = runTest {
         // Given
         val createDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(count, "CreateTest-$count")
