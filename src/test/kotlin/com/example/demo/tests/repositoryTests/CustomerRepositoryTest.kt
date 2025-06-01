@@ -50,7 +50,7 @@ class CustomerRepositoryTest {
     private fun createDTOToCustomer(dto: com.example.demo.model.CustomerCreateDTO): Customer {
         return Customer(
             id = 0L,
-            customerName = dto.customerName ?: "DefaultName-${UUID.randomUUID()}"
+            customerName = dto.customerName
         )
     }
 
@@ -67,7 +67,7 @@ class CustomerRepositoryTest {
         // Given
         val testUuid = UUID.randomUUID().toString()
         val randomCustomerDTOs =
-            CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(count, "BatchInsert-$testUuid")
+            CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(count, "BatchInsert $testUuid")
         val randomCustomers = randomCustomerDTOs.map { createDTOToCustomer(it) }
 
         // When
@@ -101,21 +101,35 @@ class CustomerRepositoryTest {
         val testUuid = UUID.randomUUID().toString()
         val totalDataCount = max(size * page + 10, 60)
         val totalCustomerDTOs =
-            CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(totalDataCount, "Pagination-$testUuid")
+            CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(totalDataCount, "Pagination $testUuid")
         val totalCustomers = totalCustomerDTOs.map { createDTOToCustomer(it) }
         val insertedCustomers = insertTestCustomers(totalCustomers)
 
-        // When - Get entities by IDs with pagination
+        // When - Get entities by IDs with pagination, handling 100 ID limit per request
         val allIds = insertedCustomers.map { it.id }
-        val paginatedCustomers = customerRepository.getEntities(
-            ids = allIds
-        ).toList()
+        val allRetrievedCustomers = mutableListOf<Customer>()
+
+        // Process IDs in chunks of 100
+        allIds.chunked(100).forEach { idChunk ->
+            val chunkCustomers = customerRepository.getEntities(
+                ids = idChunk,
+            ).toList()
+            allRetrievedCustomers.addAll(chunkCustomers)
+        }
+
+        // Apply pagination to the combined results
+        val startIndex = (page - 1) * size
+        val endIndex = min(startIndex + size, allRetrievedCustomers.size)
+        val paginatedCustomers = if (startIndex < allRetrievedCustomers.size) {
+            allRetrievedCustomers.subList(startIndex, endIndex)
+        } else {
+            emptyList()
+        }
 
         // Then
         assertTrue(paginatedCustomers.size <= size, "Returned ${paginatedCustomers.size} items, should be <= $size")
 
         // Calculate expected items on this page
-        val startIndex = (page - 1) * size
         val expectedItemsOnPage = min(size, max(0, totalDataCount - startIndex))
 
         if (expectedItemsOnPage > 0) {
@@ -130,6 +144,13 @@ class CustomerRepositoryTest {
         paginatedCustomers.forEach { customer ->
             assertTrue(allIds.contains(customer.id), "Customer should belong to this test")
         }
+
+        // Additional verification - ensure we retrieved all expected data
+        assertEquals(
+            totalDataCount,
+            allRetrievedCustomers.size,
+            "Should retrieve all inserted customers across chunks"
+        )
     }
 
     @ParameterizedTest
@@ -138,7 +159,7 @@ class CustomerRepositoryTest {
         // Given
         val testUuid = UUID.randomUUID().toString()
         val randomCustomerDTOs =
-            CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(datasetSize, "NameFilter-$testUuid")
+            CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(datasetSize, "NameFilter $testUuid")
         val randomCustomers = randomCustomerDTOs.map { createDTOToCustomer(it) }
         val insertedCustomers = insertTestCustomers(randomCustomers)
         val targetCustomer = insertedCustomers.random()
@@ -178,7 +199,7 @@ class CustomerRepositoryTest {
 
         val otherCount = totalCount - matchingCount
         val otherCustomerDTOs =
-            CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(otherCount, "Other-$testUuid")
+            CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(otherCount, "Other $testUuid")
         val otherCustomers = otherCustomerDTOs.map { createDTOToCustomer(it) }
 
         val allInserted = insertTestCustomers(specificCustomers + otherCustomers)
@@ -209,7 +230,7 @@ class CustomerRepositoryTest {
         // Given
         val testUuid = UUID.randomUUID().toString()
         val originalCustomerDTOs =
-            CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(datasetSize, "PatchTest-$testUuid")
+            CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(datasetSize, "PatchTest $testUuid")
         val originalCustomers = originalCustomerDTOs.map { createDTOToCustomer(it) }
         val insertedCustomers = insertTestCustomers(originalCustomers)
 
@@ -242,7 +263,7 @@ class CustomerRepositoryTest {
         // Given
         val testUuid = UUID.randomUUID().toString()
         val originalCustomerDTOs =
-            CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(datasetSize, "DeleteTest-$testUuid")
+            CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(datasetSize, "DeleteTest $testUuid")
         val originalCustomers = originalCustomerDTOs.map { createDTOToCustomer(it) }
         val insertedCustomers = insertTestCustomers(originalCustomers)
 
@@ -280,13 +301,13 @@ class CustomerRepositoryTest {
         // Given
         val testUuid = UUID.randomUUID().toString()
         val randomCustomerDTOs =
-            CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(datasetSize, "MultiFilter-$testUuid")
+            CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(datasetSize, "MultiFilter $testUuid")
         val randomCustomers = randomCustomerDTOs.map { createDTOToCustomer(it) }
         val insertedCustomers = insertTestCustomers(randomCustomers)
 
         // Create filters that should reasonably match some of the data
         val randomNamePart = testUuid.take(6) // Use part of our test UUID
-        val targetCustomer = insertedCustomers.random()
+        insertedCustomers.random()
 
         // When - Test multiple filters that work with Customer model
         val filteredCustomers = customerRepository.getEntities(
@@ -322,7 +343,7 @@ class CustomerRepositoryTest {
             emptyList()
         } else {
             val customerDTOs =
-                CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(count, "VariousSize-$testUuid")
+                CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(count, "VariousSize $testUuid")
             customerDTOs.map { createDTOToCustomer(it) }
         }
 
@@ -349,7 +370,7 @@ class CustomerRepositoryTest {
         // Given
         val testUuid = UUID.randomUUID().toString()
         val largeCustomerDTOs =
-            CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(datasetSize, "StressTest-$testUuid")
+            CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(datasetSize, "StressTest $testUuid")
         val largeDataset = largeCustomerDTOs.map { createDTOToCustomer(it) }
 
         // When - Insert
@@ -397,8 +418,8 @@ class CustomerRepositoryTest {
         val testUuid2 = UUID.randomUUID().toString()
 
         // Create two separate datasets
-        val dataset1DTOs = CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(10, "Concurrent1-$testUuid1")
-        val dataset2DTOs = CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(10, "Concurrent2-$testUuid2")
+        val dataset1DTOs = CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(10, "Concurrent1 $testUuid1")
+        val dataset2DTOs = CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(10, "Concurrent2 $testUuid2")
 
         val dataset1 = dataset1DTOs.map { createDTOToCustomer(it) }
         val dataset2 = dataset2DTOs.map { createDTOToCustomer(it) }

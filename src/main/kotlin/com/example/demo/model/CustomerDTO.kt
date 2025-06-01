@@ -13,7 +13,7 @@ data class CustomerDTO(
 ) : BaseIdDTO
 
 data class CustomerCreateDTO(
-    val customerName: String? = null,
+    val customerName: String,
 )
 
 data class CustomerUpdateDTO(

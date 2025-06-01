@@ -110,17 +110,31 @@ class BeerRepositoryTest {
         val totalBeers = totalBeerDTOs.map { createDTOToBeer(it) }
         val insertedBeers = insertTestBeers(totalBeers)
 
-        // When - Get entities by IDs with pagination
+        // When - Get entities by IDs with pagination, handling 100 ID limit per request
         val allIds = insertedBeers.map { it.id }
-        val paginatedBeers = beerRepository.getEntities(
-            ids = allIds
-        ).toList()
+        val allRetrievedBeers = mutableListOf<Beer>()
+
+        // Process IDs in chunks of 100
+        allIds.chunked(100).forEach { idChunk ->
+            val chunkBeers = beerRepository.getEntities(
+                ids = idChunk,
+            ).toList()
+            allRetrievedBeers.addAll(chunkBeers)
+        }
+
+        // Apply pagination to the combined results
+        val startIndex = (page - 1) * size
+        val endIndex = min(startIndex + size, allRetrievedBeers.size)
+        val paginatedBeers = if (startIndex < allRetrievedBeers.size) {
+            allRetrievedBeers.subList(startIndex, endIndex)
+        } else {
+            emptyList()
+        }
 
         // Then
         assertTrue(paginatedBeers.size <= size, "Returned ${paginatedBeers.size} items, should be <= $size")
 
         // Calculate expected items on this page
-        val startIndex = (page - 1) * size
         val expectedItemsOnPage = min(size, max(0, totalDataCount - startIndex))
 
         if (expectedItemsOnPage > 0) {
@@ -135,6 +149,13 @@ class BeerRepositoryTest {
         paginatedBeers.forEach { beer ->
             assertTrue(allIds.contains(beer.id), "Beer should belong to this test")
         }
+
+        // Additional verification - ensure we retrieved all expected data
+        assertEquals(
+            totalDataCount,
+            allRetrievedBeers.size,
+            "Should retrieve all inserted beers across chunks"
+        )
     }
 
     @ParameterizedTest

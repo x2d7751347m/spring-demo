@@ -355,7 +355,7 @@ class BeerServiceTest {
     ).toList()
 
     private suspend fun findBeersByIdsWithPagination(ids: List<Long>, page: Int, size: Int) =
-        beerService.getEntities(BeerSearchRequest(ids = ids))
+        beerService.getEntities(BeerSearchRequest(ids = ids, page = page, size = size))
             .toList()
 
     // Helper methods for dynamic test data generation

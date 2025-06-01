@@ -7,7 +7,7 @@ import org.springframework.web.reactive.function.server.ServerRequest
 import org.springframework.web.server.ResponseStatusException
 import java.time.Instant
 
-//@Component
+@Component
 class GlobalErrorAttributes : DefaultErrorAttributes() {
 
     override fun getErrorAttributes(request: ServerRequest, options: ErrorAttributeOptions): Map<String, Any> {
@@ -17,7 +17,7 @@ class GlobalErrorAttributes : DefaultErrorAttributes() {
         when (error) {
             is ResponseStatusException -> {
                 errorAttributes["status"] = error.statusCode.value()
-                errorAttributes["message"] = error.reason ?: "Bad Request"
+                errorAttributes["message"] = error.reason ?: "Internal Server Error"
                 errorAttributes["timestamp"] = Instant.now().toString()
                 errorAttributes["path"] = request.uri().toString()
             }
@@ -30,3 +30,10 @@ class GlobalErrorAttributes : DefaultErrorAttributes() {
         return errorAttributes
     }
 }
+
+data class ErrorMessage(
+    val status: String,
+    val message: String,
+    val timestamp: String,
+    val path: String,
+)

@@ -7,12 +7,11 @@ import io.konform.validation.Validation
 import io.konform.validation.constraints.*
 import io.konform.validation.onEach
 
-// CustomerCreateDTO Validator
-val customerCreateValidator = Validation<CustomerCreateDTO> {
-    CustomerCreateDTO::customerName ifPresent {
+val customerCreateValidator = Validation {
+    CustomerCreateDTO::customerName {
         notBlank()
-        maxLength(100)
-        pattern("^[a-zA-Z\\s\\-.]+$".toRegex()) hint "Customer name can only contain letters, spaces, hyphens, and periods"
+        maxLength(50)
+        pattern("^[a-zA-Z0-9\\s]+$".toRegex()) hint "Customer name can only contain letters, spaces, and periods"
     }
 }
 
@@ -25,16 +24,15 @@ val customerCreateListValidator = Validation<List<CustomerCreateDTO>> {
     }
 }
 
-// CustomerUpdateDTO Validator
-val customerUpdateValidator = Validation<CustomerUpdateDTO> {
+val customerUpdateValidator = Validation {
     CustomerUpdateDTO::id {
         minimum(1L)
     }
 
     CustomerUpdateDTO::customerName ifPresent {
         notBlank()
-        maxLength(100)
-        pattern("^[a-zA-Z가-힣\\s\\-\\.]+$".toRegex()) hint "Customer name can only contain letters, spaces, hyphens, and periods"
+        maxLength(50)
+        pattern("^[a-zA-Z0-9\\s]+$".toRegex()) hint "Customer name can only contain letters, spaces, and periods"
     }
 }
 
@@ -68,8 +66,8 @@ val customerSearchRequestValidator = Validation<CustomerSearchRequest> {
 
     CustomerSearchRequest::customerName ifPresent {
         notBlank()
-        maxLength(100)
-        pattern("^[a-zA-Z\\s\\-\\.]+$".toRegex()) hint "Customer name can only contain letters, spaces, hyphens, and periods"
+        maxLength(50)
+        pattern("^[a-zA-Z0-9\\s]+$".toRegex()) hint "Customer name can only contain letters, spaces, and periods"
     }
 
     CustomerSearchRequest::customerNameContains ifPresent {

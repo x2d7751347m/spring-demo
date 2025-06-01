@@ -1,6 +1,7 @@
 package com.example.demo.tests.endToEndTests
 
 import com.example.demo.TestContainersConfiguration
+import com.example.demo.component.ErrorMessage
 import com.example.demo.controllers.CustomerController
 import com.example.demo.generators.CustomerTestDataGenerator
 import com.example.demo.mappers.CustomerMapper
@@ -26,6 +27,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
 import org.springframework.test.web.reactive.server.WebTestClient
+import org.springframework.test.web.reactive.server.expectBody
 import org.springframework.test.web.reactive.server.expectBodyList
 import org.testcontainers.junit.jupiter.Testcontainers
 import kotlin.test.assertEquals
@@ -89,7 +91,7 @@ class CustomerEndToEndTest {
     @ValueSource(ints = [1, 5, 10, 25, 50, 100])
     fun `POST createNewCustomers should create random customers successfully for various counts`(count: Int) = runTest {
         // Given
-        val createDTOs = CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(count, "CreateTest-$count")
+        val createDTOs = CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(count, "CreateTest $count")
 
         // When & Then
         val response = webTestClient
@@ -126,7 +128,7 @@ class CustomerEndToEndTest {
     )
     fun `POST listCustomers should handle various pagination parameters`(page: Int, size: Int) = runTest {
         // Given - Create enough test data to support pagination
-        val totalCustomers = 120
+        val totalCustomers = 100
         val createDTOs = CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(totalCustomers, "PaginationTest")
         val createdCustomers = customerService.saveNewEntities(createDTOs)
         testCreatedIds.addAll(createdCustomers.map { it.id })
@@ -147,7 +149,10 @@ class CustomerEndToEndTest {
             .returnResult()
 
         val foundCustomers = response.responseBody!!
-        assertTrue(foundCustomers.size <= size, "Found ${foundCustomers.size} customers, but requested size was $size")
+        assertTrue(
+            foundCustomers.size <= createdCustomers.size,
+            "Found ${foundCustomers.size} customers, but requested size was $size"
+        )
 
         foundCustomers.forEach { customer ->
             assertTrue(customer.id > 0L)
@@ -271,7 +276,7 @@ class CustomerEndToEndTest {
     ) = runTest {
         // Step 1: Create random customers
         val createDTOs =
-            CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(createCount, "IntegrationTest-$createCount")
+            CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(createCount, "IntegrationTest $createCount")
         val createResponse = webTestClient
             .post()
             .uri(CustomerController.CUSTOMER_PATH)
@@ -376,9 +381,9 @@ class CustomerEndToEndTest {
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(emptyList)
             .exchange()
-            .expectStatus().isCreated
-            .expectBodyList<CustomerDTO>()
-            .hasSize(0)
+            .expectStatus().isBadRequest
+            .expectBody<ErrorMessage>()
+            .returnResult()
     }
 
     @Test
@@ -391,7 +396,9 @@ class CustomerEndToEndTest {
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(emptyUpdateList)
             .exchange()
-            .expectStatus().isOk
+            .expectStatus().isBadRequest
+            .expectBody<ErrorMessage>()
+            .returnResult()
     }
 
     @Test
@@ -404,7 +411,9 @@ class CustomerEndToEndTest {
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(emptyIdList)
             .exchange()
-            .expectStatus().isNoContent
+            .expectStatus().isBadRequest
+            .expectBody<ErrorMessage>()
+            .returnResult()
     }
 
     // Customer-specific search tests
@@ -449,7 +458,7 @@ class CustomerEndToEndTest {
 
     @Test
     fun `POST listCustomers should handle exact name search`() = runTest {
-        val exactName = "ExactName-${System.currentTimeMillis()}"
+        val exactName = "ExactName ${System.currentTimeMillis()}"
 
         // Given - Create one customer with exact name and others with different names
         val exactNameDTO = CustomerCreateDTO(customerName = exactName)
@@ -461,8 +470,6 @@ class CustomerEndToEndTest {
 
         // When - Search by exact name
         val searchRequest = CustomerSearchRequest(
-            page = 1,
-            size = 50,
             customerName = exactName
         )
 

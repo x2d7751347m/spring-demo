@@ -320,15 +320,17 @@ class CustomerServiceTest {
             .toList()
 
     private suspend fun findCustomersByIdsWithPagination(ids: List<Long>, page: Int, size: Int) =
-        customerService.getEntities(CustomerSearchRequest(ids = ids))
-            .toList()
-
-    // Helper methods for dynamic test data generation
-    private fun generateTestCustomers(count: Int, testId: String): List<CustomerCreateDTO> {
-        return (0 until count).map { index ->
-            CustomerCreateDTO(
-                customerName = "Customer-$index-$testId"
+        customerService.getEntities(
+            CustomerSearchRequest(
+                ids = ids,
+                page = page,
+                size = size
             )
+        ).toList()
+
+    private fun generateTestCustomers(count: Int, testId: String): List<CustomerCreateDTO> {
+        return (1..count).map { index ->
+            CustomerCreateDTO(customerName = "TestCustomer-$index-$testId")
         }
     }
 

@@ -12,8 +12,8 @@ object BeerTestDataGenerator {
     fun generateRandomBeerCreateDTOs(count: Int, prefix: String = "ControllerTest"): List<BeerCreateDTO> {
         return (1..count).map {
             BeerCreateDTO(
-                beerName = "$prefix-BeerName-${UUID.randomUUID()}",
-                beerStyle = "Style-${UUID.randomUUID()}",
+                beerName = "$prefix-BeerName-${UUID.randomUUID()}".take(50),
+                beerStyle = "Style-${UUID.randomUUID()}".take(30),
                 upc = generateRandomUPC(),
                 quantityOnHand = Random.nextInt(1, 1000),
                 price = generateRandomPrice()
@@ -25,8 +25,8 @@ object BeerTestDataGenerator {
         return existingIds.shuffled().take((existingIds.size * updateRatio).toInt()).map { id ->
             BeerUpdateDTO(
                 id = id,
-                beerName = if (Random.nextBoolean()) "Updated-${UUID.randomUUID()}" else null,
-                beerStyle = if (Random.nextBoolean()) "UpdatedStyle-${UUID.randomUUID()}" else null,
+                beerName = if (Random.nextBoolean()) "Updated-${UUID.randomUUID()}".take(50) else null,
+                beerStyle = if (Random.nextBoolean()) "UpdatedStyle-${UUID.randomUUID()}".take(30) else null,
                 price = if (Random.nextBoolean()) generateRandomPrice() else null,
                 quantityOnHand = if (Random.nextBoolean()) Random.nextInt(1, 1000) else null,
                 upc = if (Random.nextBoolean()) generateRandomUPC() else null
@@ -35,7 +35,7 @@ object BeerTestDataGenerator {
     }
 
     private fun generateRandomUPC(): String {
-        return UUID.randomUUID().toString().replace("-", "").take(12)
+        return Random.nextLong(100000000000L, 999999999999L).toString()
     }
 
     private fun generateRandomPrice(): BigDecimal {

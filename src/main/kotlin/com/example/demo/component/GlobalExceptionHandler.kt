@@ -8,13 +8,12 @@ import org.springframework.context.ApplicationContext
 import org.springframework.core.annotation.Order
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
-import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.server.*
 import org.springframework.web.server.ResponseStatusException
 import reactor.core.publisher.Mono
 import java.time.Instant
 
-@Component
+//@Component
 @Order(-2)
 class GlobalErrorWebExceptionHandler(
     errorAttributes: ErrorAttributes,

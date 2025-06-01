@@ -5,7 +5,6 @@ import com.example.demo.model.BeerDTO
 import com.example.demo.model.BeerSearchRequest
 import com.example.demo.model.BeerUpdateDTO
 import com.example.demo.services.BeerService
-import com.example.demo.utils.createErrorResponse
 import com.example.demo.validator.beerCreateListValidator
 import com.example.demo.validator.beerSearchRequestValidator
 import com.example.demo.validator.beerUpdateListValidator
