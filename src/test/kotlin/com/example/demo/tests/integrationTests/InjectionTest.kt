@@ -43,30 +43,30 @@ class InjectionTest {
     @Autowired
     private lateinit var webTestClient: WebTestClient
 
-    @Autowired
-    private lateinit var database: R2dbcDatabase
-
-    @Autowired
-    private lateinit var beerRepository: BeerRepository
-
-    @Autowired
-    private lateinit var beerService: BeerService
-
-    //    @Autowired
-    private lateinit var beerController: BeerController
-
-    @Autowired
-    private lateinit var beerMapper: BeerMapper
-
-    private lateinit var databaseInitService: DatabaseInitService
-
-    @Autowired
-    private lateinit var databaseProperties: DatabaseProperties
-
-    @Autowired
-    private lateinit var initialDatabaseProperties: InitialDatabaseProperties
-
-    private var initialized = false
+//    @Autowired
+//    private lateinit var database: R2dbcDatabase
+//
+//    @Autowired
+//    private lateinit var beerRepository: BeerRepository
+//
+//    @Autowired
+//    private lateinit var beerService: BeerService
+//
+//    //    @Autowired
+//    private lateinit var beerController: BeerController
+//
+//    @Autowired
+//    private lateinit var beerMapper: BeerMapper
+//
+//    private lateinit var databaseInitService: DatabaseInitService
+//
+//    @Autowired
+//    private lateinit var databaseProperties: DatabaseProperties
+//
+//    @Autowired
+//    private lateinit var initialDatabaseProperties: InitialDatabaseProperties
+//
+//    private var initialized = false
 
     // Track created IDs for each test to avoid interference
     private val testCreatedIds = mutableSetOf<Long>()
