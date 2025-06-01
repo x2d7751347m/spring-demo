@@ -1,4 +1,4 @@
-package com.example.demo.tests.endToEndTests
+package com.example.demo.tests.integrationTests
 
 import com.example.demo.TestContainersConfiguration
 import com.example.demo.controllers.BeerController
@@ -36,7 +36,7 @@ import kotlin.test.assertTrue
 @Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestContainersConfiguration::class)
-class BeerEndToEndTest {
+class BeerIntegrationTest {
 
     @Autowired
     private lateinit var webTestClient: WebTestClient
