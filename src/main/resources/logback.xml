@@ -8,4 +8,6 @@
         <appender-ref ref="STDOUT"/>
     </root>
     <logger name="io.netty" level="info"/>
+    <logger name="org.komapper.Sql" level="WARN"/>
+    <logger name="org.komapper.SqlWithArgs" level="WARN"/>
 </configuration>

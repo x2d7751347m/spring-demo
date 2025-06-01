@@ -50,8 +50,6 @@ dependencies {
     implementation("org.mapstruct:mapstruct:$mapstruct_version")
     kapt("org.mapstruct:mapstruct-processor:$mapstruct_version")
     kaptTest("org.mapstruct:mapstruct-processor:$mapstruct_version")
-    testRuntimeOnly("com.h2database:h2")
-    testRuntimeOnly("io.r2dbc:r2dbc-h2")
     implementation("com.bucket4j:bucket4j_jdk17-core:$bucket4j_version") // Rate Limit
     runtimeOnly("io.github.oshai:kotlin-logging-jvm:$kotlin_logging_version")
     implementation(group = "org.apache.commons", name = "commons-lang3")
@@ -77,6 +75,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
     runtimeOnly("org.postgresql:postgresql")
     runtimeOnly("org.postgresql:r2dbc-postgresql")
+    testRuntimeOnly("org.postgresql:postgresql")
+    testRuntimeOnly("org.postgresql:r2dbc-postgresql")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("io.projectreactor:reactor-test")

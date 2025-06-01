@@ -4,11 +4,9 @@ import org.springframework.boot.actuate.autoconfigure.security.reactive.Endpoint
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.annotation.Order
-import org.springframework.security.config.Customizer
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity
 import org.springframework.security.config.web.server.ServerHttpSecurity
 import org.springframework.security.config.web.server.ServerHttpSecurity.AuthorizeExchangeSpec
-import org.springframework.security.config.web.server.ServerHttpSecurity.OAuth2ResourceServerSpec
 import org.springframework.security.web.server.SecurityWebFilterChain
 
 
@@ -23,9 +21,9 @@ class SecurityConfig {
     @Throws(Exception::class)
     fun actuatorSecurityFilterChain(http: ServerHttpSecurity): SecurityWebFilterChain? {
         http.securityMatcher(EndpointRequest.toAnyEndpoint())
-            .authorizeExchange(Customizer { authorize: AuthorizeExchangeSpec? ->
+            .authorizeExchange { authorize: AuthorizeExchangeSpec? ->
                 authorize!!.anyExchange().permitAll()
-            })
+            }
 
         return http.build()
     }
@@ -33,14 +31,16 @@ class SecurityConfig {
     @Bean
     @Order(2)
     fun securityWebFilterChain(http: ServerHttpSecurity): SecurityWebFilterChain? {
-        http.authorizeExchange(Customizer { authorizeExchangeSpec: AuthorizeExchangeSpec? ->
-            authorizeExchangeSpec!!.anyExchange().authenticated()
-        })
-            .oauth2ResourceServer(Customizer { oAuth2ResourceServerSpec: OAuth2ResourceServerSpec? ->
-                oAuth2ResourceServerSpec!!.jwt(
-                    Customizer.withDefaults<OAuth2ResourceServerSpec.JwtSpec?>()
-                )
-            })
+        http.authorizeExchange { authorizeExchangeSpec: AuthorizeExchangeSpec? ->
+            authorizeExchangeSpec!!.anyExchange()
+                .permitAll()
+//                .authenticated()
+        }
+//            .oauth2ResourceServer(Customizer { oAuth2ResourceServerSpec: OAuth2ResourceServerSpec? ->
+//                oAuth2ResourceServerSpec!!.jwt(
+//                    Customizer.withDefaults<OAuth2ResourceServerSpec.JwtSpec?>()
+//                )
+//            })
             .csrf { csrfSpec -> csrfSpec.disable() }
 
         return http.build()

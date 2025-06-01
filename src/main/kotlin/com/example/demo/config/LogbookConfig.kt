@@ -10,9 +10,9 @@ import org.zalando.logbook.logstash.LogstashLogbackSink
 @Configuration
 class LogbookConfig {
     @Bean
-    fun LogbookLogStash(): Sink {
+    fun logbookLogStash(): Sink {
         val formatter: HttpLogFormatter = JsonHttpLogFormatter()
-        val sink: LogstashLogbackSink = LogstashLogbackSink(formatter)
+        val sink = LogstashLogbackSink(formatter)
         return sink
     }
 }

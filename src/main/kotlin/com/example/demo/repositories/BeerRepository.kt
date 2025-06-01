@@ -1,162 +1,96 @@
 package com.example.demo.repositories
 
 import com.example.demo.domain.Beer
+import com.example.demo.domain._BeerDef
 import com.example.demo.domain.beer
 import com.example.demo.model.BeerUpdateDTO
+import com.example.demo.repositories.base.BaseRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.last
 import org.komapper.core.dsl.Meta
 import org.komapper.core.dsl.QueryDsl
-import org.komapper.core.dsl.operator.count
+import org.komapper.core.dsl.query.RelationUpdateQuery
+import org.komapper.core.dsl.query.RelationUpdateReturningQuery
 import org.komapper.r2dbc.R2dbcDatabase
 import org.komapper.tx.core.TransactionProperty
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository
 import java.math.BigDecimal
-import java.time.LocalDateTime
+
 
 @Repository
 class BeerRepository(
-    db: R2dbcDatabase,
+    @Autowired database: R2dbcDatabase,
+) : BaseRepository<Beer, BeerUpdateDTO, Long, _BeerDef>( // Pass Long for ID
+    database = database,
+    entityDef = Meta.beer
 ) {
-    val r2dbcWriteDatabase = db
-    val r2dbcReadDatabase = db
-    val beerDef = Meta.beer
-    suspend fun insertBeer(
-        beer: Beer,
-    ): Beer {
-        return r2dbcWriteDatabase.runQuery {
-            QueryDsl.insert(beerDef).single(beer)
-        }
-    }
 
-    suspend fun updateBeer(
-        beerDTO: BeerUpdateDTO,
-    ): Beer {
-        r2dbcWriteDatabase.withTransaction(transactionProperty = TransactionProperty.IsolationLevel.READ_COMMITTED) {
-            r2dbcWriteDatabase.runQuery {
-                QueryDsl.update(beerDef)
-                    .set {
-                        beerDTO.beerName?.run { beerDef.beerName eq this }
-                        beerDTO.beerStyle?.run { beerDef.beerStyle eq this }
-                        beerDTO.upc?.run { beerDef.upc eq this }
-                        beerDTO.quantityOnHand?.run { beerDef.quantityOnHand eq this }
-                        beerDTO.price?.run { beerDef.price eq this }
-                    }
-                    .where { beerDef.id eq beerDTO.id }
+    override fun buildUpdateQuery(updateDTO: BeerUpdateDTO): RelationUpdateQuery<Beer, Long, _BeerDef> {
+        return QueryDsl.update(entityDef)
+            .set {
+                updateDTO.beerName?.run { entityDef.beerName eq this }
+                updateDTO.beerStyle?.run { entityDef.beerStyle eq this }
+                updateDTO.upc?.run { entityDef.upc eq this }
+                updateDTO.quantityOnHand?.run { entityDef.quantityOnHand eq this }
+                updateDTO.price?.run { entityDef.price eq this }
             }
-        }
-        return r2dbcWriteDatabase.flowQuery {
-            QueryDsl.from(beerDef).where { beerDef.id eq beerDTO.id }
-        }.last()
+            .where { entityDef.id eq updateDTO.id }
     }
 
-    suspend fun fetchBeers(
+    override fun buildUpdateAndReturnQuery(updateDTO: BeerUpdateDTO): RelationUpdateReturningQuery<List<Beer>> {
+        return QueryDsl.update(entityDef)
+            .set {
+                updateDTO.beerName?.run { entityDef.beerName eq this }
+                updateDTO.beerStyle?.run { entityDef.beerStyle eq this }
+                updateDTO.upc?.run { entityDef.upc eq this }
+                updateDTO.quantityOnHand?.run { entityDef.quantityOnHand eq this }
+                updateDTO.price?.run { entityDef.price eq this }
+            }
+            .where { entityDef.id eq updateDTO.id }.returning()
+    }
+
+    override fun idProperty() = entityDef.id
+
+
+    suspend fun getEntities(
         page: Int = 1,
-        size: Int = 100,
-        id: Long? = null,
+        size: Int = 1000,
+        ids: List<Long>? = null,
         beerName: String? = null,
         beerNameContains: String? = null,
         beerStyle: String? = null,
         beerStyleContains: String? = null,
         upc: String? = null,
-        upcContains: String? = null,
         quantityOnHand: Int? = null,
-        price: BigDecimal? = null,
-        createdAtBefore: LocalDateTime? = null,
-        createdAtAfter: LocalDateTime? = null,
-        updatedAtBefore: LocalDateTime? = null,
-        updatedAtAfter: LocalDateTime? = null,
-    ): Flow<Beer> =
-        r2dbcReadDatabase.withTransaction(transactionProperty = TransactionProperty.ReadOnly(true)) {
-            r2dbcReadDatabase.flowQuery {
-                QueryDsl.from(beerDef)
+        minPrice: BigDecimal? = null,
+        maxPrice: BigDecimal? = null,
+    ): Flow<Beer> {
+        return database.withTransaction(
+            transactionProperty = TransactionProperty.ReadOnly(true)
+        ) {
+            database.flowQuery {
+                QueryDsl.from(entityDef)
                     .where {
-                        id?.let { beerDef.id eq it }
-                        beerName?.let { beerDef.beerName eq it }
+                        ids?.let { entityDef.id inList it }
+                        beerName?.let { entityDef.beerName eq it }
                         beerNameContains?.let {
-                            it.split(" ").forEach {
-                                beerDef.beerName contains it
+                            it.split(" ").filter { keyword -> keyword.isNotBlank() }.forEach { keyword ->
+                                entityDef.beerName contains keyword
                             }
                         }
-                        beerStyle?.let { beerDef.beerStyle eq it }
+                        beerStyle?.let { entityDef.beerStyle eq it }
                         beerStyleContains?.let {
-                            it.split(" ").forEach {
-                                beerDef.beerStyle contains it
+                            it.split(" ").filter { keyword -> keyword.isNotBlank() }.forEach { keyword ->
+                                entityDef.beerStyle contains keyword
                             }
                         }
-                        upc?.let { beerDef.upc eq it }
-                        upcContains?.let {
-                            it.split(" ").forEach {
-                                beerDef.upc contains it
-                            }
-                        }
-                        quantityOnHand?.let { beerDef.quantityOnHand eq it }
-                        price?.let { beerDef.price eq it }
-                        createdAtBefore?.let { beerDef.createdAt lessEq it }
-                        createdAtAfter?.let { beerDef.createdAt greaterEq it }
-                        updatedAtBefore?.let { beerDef.updatedAt lessEq it }
-                        updatedAtAfter?.let { beerDef.updatedAt greaterEq it }
+                        upc?.let { entityDef.upc eq it }
+                        quantityOnHand?.let { entityDef.quantityOnHand eq it }
+                        minPrice?.let { entityDef.price greaterEq it }
+                        maxPrice?.let { entityDef.price lessEq it }
                     }
                     .offset((page - 1).times(size)).limit(size)
             }
         }
-
-    suspend fun countTotalBeers(
-        id: Long? = null,
-        beerName: String? = null,
-        beerNameContains: String? = null,
-        beerStyle: String? = null,
-        beerStyleContains: String? = null,
-        upc: String? = null,
-        upcContains: String? = null,
-        quantityOnHand: Int? = null,
-        price: BigDecimal? = null,
-        createdAtBefore: LocalDateTime? = null,
-        createdAtAfter: LocalDateTime? = null,
-        updatedAtBefore: LocalDateTime? = null,
-        updatedAtAfter: LocalDateTime? = null,
-    ): Long =
-        r2dbcReadDatabase.withTransaction(transactionProperty = TransactionProperty.ReadOnly(true)) {
-            r2dbcReadDatabase.runQuery {
-                QueryDsl.from(beerDef)
-                    .where {
-                        id?.let { beerDef.id eq it }
-                        beerName?.let { beerDef.beerName eq it }
-                        beerNameContains?.let {
-                            it.split(" ").forEach {
-                                beerDef.beerName contains it
-                            }
-                        }
-                        beerStyle?.let { beerDef.beerStyle eq it }
-                        beerStyleContains?.let {
-                            it.split(" ").forEach {
-                                beerDef.beerStyle contains it
-                            }
-                        }
-                        upc?.let { beerDef.upc eq it }
-                        upcContains?.let {
-                            it.split(" ").forEach {
-                                beerDef.upc contains it
-                            }
-                        }
-                        quantityOnHand?.let { beerDef.quantityOnHand eq it }
-                        price?.let { beerDef.price eq it }
-                        createdAtBefore?.let { beerDef.createdAt lessEq it }
-                        createdAtAfter?.let { beerDef.createdAt greaterEq it }
-                        updatedAtBefore?.let { beerDef.updatedAt lessEq it }
-                        updatedAtAfter?.let { beerDef.updatedAt greaterEq it }
-                    }.select(count())
-            }!!
-        }
-
-    suspend fun deleteBeer(
-        id: Long,
-    ) =
-        r2dbcWriteDatabase.withTransaction(transactionProperty = TransactionProperty.IsolationLevel.SERIALIZABLE) {
-            r2dbcWriteDatabase.runQuery {
-                QueryDsl.delete(
-                    beerDef
-                ).where { beerDef.id eq id }
-            }
-        }
+    }
 }

@@ -17,6 +17,8 @@
     </appender>
 
     <logger name="io.netty" level="INFO"/>
+    <logger name="org.komapper.Sql" level="WARN"/>
+    <logger name="org.komapper.SqlWithArgs" level="WARN"/>
 
     <logger name="org.apache.kafka.clients" level="INFO" additivity="false">
         <appender-ref ref="KAFKA"/>

@@ -6,12 +6,11 @@ import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
-import org.springframework.stereotype.Component
 import kotlin.system.exitProcess
 
-@Component
+//@Component
 class DatabaseInitRunner(
-    private val databaseProperties: DatabaseProperties, // DatabaseResetProperties 대신 DatabaseProperties 사용
+    private val databaseProperties: DatabaseProperties,
     private val databaseInitService: DatabaseInitService,
 ) : ApplicationRunner {
 
@@ -27,19 +26,6 @@ class DatabaseInitRunner(
                     exitProcess(0)
                 } catch (e: Exception) {
                     logger.error("Database drop failed, application will continue", e)
-                    throw e
-//                     exitProcess(1)
-                }
-            }
-        }
-        if (databaseProperties.initialize) {
-            logger.info("Database initialize is enabled, starting initialize process...")
-
-            runBlocking {
-                try {
-                    databaseInitService.initializeDatabase()
-                } catch (e: Exception) {
-                    logger.error("Database initialize failed, application will continue", e)
                     throw e
 //                     exitProcess(1)
                 }

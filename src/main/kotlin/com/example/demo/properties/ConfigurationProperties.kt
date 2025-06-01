@@ -7,7 +7,7 @@ import java.time.Duration
 @ConfigurationProperties(prefix = "database")
 data class DatabaseProperties(
     val write: DatabaseConnectionProperties,
-    val read: DatabaseConnectionProperties,
+//    val read: DatabaseConnectionProperties,
     val drop: Boolean = false,
     val initialize: Boolean = false,
 )
@@ -29,12 +29,7 @@ data class PoolProperties(
     val maxIdleTime: Duration = Duration.ofSeconds(30),
 )
 
-@ConfigurationProperties(prefix = "swagger")
-data class SwaggerProperties(
-    val host: String = "localhost",
-)
-
-@ConfigurationProperties(prefix = "database.initial")
+//@ConfigurationProperties(prefix = "database.initial")
 data class InitialDatabaseProperties(
     val protocol: String = "postgresql",
     val host: String = "localhost",
