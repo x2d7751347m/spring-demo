@@ -1,14 +1,10 @@
 package com.example.demo.tests.endToEndTests
 
 import com.example.demo.TestContainersConfiguration
-import com.example.demo.component.ErrorMessage
 import com.example.demo.controllers.CustomerController
 import com.example.demo.generators.CustomerTestDataGenerator
 import com.example.demo.mappers.CustomerMapper
-import com.example.demo.model.CustomerCreateDTO
-import com.example.demo.model.CustomerDTO
-import com.example.demo.model.CustomerSearchRequest
-import com.example.demo.model.CustomerUpdateDTO
+import com.example.demo.model.*
 import com.example.demo.repositories.CustomerRepository
 import com.example.demo.services.CustomerService
 import com.example.demo.services.CustomerServiceImpl
@@ -101,10 +97,12 @@ class CustomerEndToEndTest {
             .bodyValue(createDTOs)
             .exchange()
             .expectStatus().isCreated
-            .expectBodyList<CustomerDTO>()
+            .expectBody<ServiceResult<List<CustomerDTO>>>()
             .returnResult()
 
-        val createdCustomers = response.responseBody!!
+        val serviceResult = response.responseBody!!
+        assertTrue(serviceResult is ServiceResult.Ok)
+        val createdCustomers = serviceResult.value
         assertEquals(count, createdCustomers.size)
 
         // Track created IDs for cleanup
@@ -284,10 +282,12 @@ class CustomerEndToEndTest {
             .bodyValue(createDTOs)
             .exchange()
             .expectStatus().isCreated
-            .expectBodyList<CustomerDTO>()
+            .expectBody<ServiceResult<List<CustomerDTO>>>()
             .returnResult()
 
-        val createdCustomers = createResponse.responseBody!!
+        val serviceResult = createResponse.responseBody!!
+        assertTrue(serviceResult is ServiceResult.Ok)
+        val createdCustomers = serviceResult.value
         assertEquals(createCount, createdCustomers.size)
         testCreatedIds.addAll(createdCustomers.map { it.id })
 
@@ -370,24 +370,53 @@ class CustomerEndToEndTest {
         }
     }
 
-    // Edge cases - still important to test
+    // Validation Failure Tests
     @Test
-    fun `POST createNewCustomers should handle empty list`() = runTest {
+    fun `POST createNewCustomers should return error for empty list`() = runTest {
         val emptyList = emptyList<CustomerCreateDTO>()
 
-        webTestClient
+        val response = webTestClient
             .post()
             .uri(CustomerController.CUSTOMER_PATH)
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(emptyList)
             .exchange()
             .expectStatus().isBadRequest
-            .expectBody<ErrorMessage>()
+            .expectBody<ServiceResult<List<CustomerDTO>>>()
             .returnResult()
+
+        val serviceResult = response.responseBody!!
+        assertTrue(serviceResult is ServiceResult.Err)
+        assertEquals("Validation failed", serviceResult.message)
+        assertTrue(serviceResult.errors.isNotEmpty())
     }
 
     @Test
-    fun `PATCH patchCustomers should handle empty update list`() = runTest {
+    fun `POST createNewCustomers should return error for invalid customer data`() = runTest {
+        val invalidCustomers = listOf(
+            CustomerCreateDTO(customerName = ""), // Empty name
+            CustomerCreateDTO(customerName = "   "), // Blank name
+            CustomerCreateDTO(customerName = "x".repeat(256)) // Too long name (assuming max 255)
+        )
+
+        val response = webTestClient
+            .post()
+            .uri(CustomerController.CUSTOMER_PATH)
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(invalidCustomers)
+            .exchange()
+            .expectStatus().isBadRequest
+            .expectBody<ServiceResult<List<CustomerDTO>>>()
+            .returnResult()
+
+        val serviceResult = response.responseBody!!
+        assertTrue(serviceResult is ServiceResult.Err)
+        assertEquals("Validation failed", serviceResult.message)
+        assertTrue(serviceResult.errors.isNotEmpty())
+    }
+
+    @Test
+    fun `PATCH patchCustomers should return error for empty update list`() = runTest {
         val emptyUpdateList = emptyList<CustomerUpdateDTO>()
 
         webTestClient
@@ -397,12 +426,29 @@ class CustomerEndToEndTest {
             .bodyValue(emptyUpdateList)
             .exchange()
             .expectStatus().isBadRequest
-            .expectBody<ErrorMessage>()
-            .returnResult()
     }
 
     @Test
-    fun `DELETE deleteByIds should handle empty id list`() = runTest {
+    fun `PATCH patchCustomers should return error for invalid update data`() = runTest {
+        val invalidUpdates = listOf(
+            CustomerUpdateDTO(id = 0, customerName = "Valid Name"), // Invalid ID
+            CustomerUpdateDTO(id = -1, customerName = "Valid Name"), // Negative ID
+            CustomerUpdateDTO(id = 1, customerName = ""), // Empty name
+            CustomerUpdateDTO(id = 2, customerName = "   "), // Blank name
+            CustomerUpdateDTO(id = 3, customerName = "x".repeat(256)) // Too long name
+        )
+
+        webTestClient
+            .patch()
+            .uri(CustomerController.CUSTOMER_PATH)
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(invalidUpdates)
+            .exchange()
+            .expectStatus().isBadRequest
+    }
+
+    @Test
+    fun `DELETE deleteByIds should return error for empty id list`() = runTest {
         val emptyIdList = emptyList<Long>()
 
         webTestClient
@@ -412,14 +458,58 @@ class CustomerEndToEndTest {
             .bodyValue(emptyIdList)
             .exchange()
             .expectStatus().isBadRequest
-            .expectBody<ErrorMessage>()
-            .returnResult()
+    }
+
+    @Test
+    fun `DELETE deleteByIds should return error for invalid ids`() = runTest {
+        val invalidIds = listOf(0L, -1L, -999L) // Invalid IDs
+
+        webTestClient
+            .method(HttpMethod.DELETE)
+            .uri(CustomerController.CUSTOMER_PATH)
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(invalidIds)
+            .exchange()
+            .expectStatus().isBadRequest
+    }
+
+    @Test
+    fun `POST getCustomers should return error for invalid search request`() = runTest {
+        val invalidSearchRequest = CustomerSearchRequest(
+            page = 0, // Invalid page (should be >= 1)
+            size = 0, // Invalid size (should be >= 1)
+            ids = listOf(0L, -1L) // Invalid IDs
+        )
+
+        webTestClient
+            .post()
+            .uri("${CustomerController.CUSTOMER_PATH}/get")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(invalidSearchRequest)
+            .exchange()
+            .expectStatus().isBadRequest
+    }
+
+    @Test
+    fun `POST getCustomers should return error for too large page size`() = runTest {
+        val invalidSearchRequest = CustomerSearchRequest(
+            page = 1,
+            size = 1001 // Assuming max size is 1000
+        )
+
+        webTestClient
+            .post()
+            .uri("${CustomerController.CUSTOMER_PATH}/get")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(invalidSearchRequest)
+            .exchange()
+            .expectStatus().isBadRequest
     }
 
     // Customer-specific search tests
     @Test
     fun `POST listCustomers should handle name-based search`() = runTest {
-        val uniqueTestPrefix = "NameTest-${System.currentTimeMillis()}"
+        val uniqueTestPrefix = "NameTest ${System.currentTimeMillis()}".take(20)
 
         // Given - Create customers with unique names
         val createDTOs = CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(20, uniqueTestPrefix)
@@ -491,7 +581,7 @@ class CustomerEndToEndTest {
 
     @Test
     fun `POST listCustomers should combine search criteria properly`() = runTest {
-        val testPrefix = "CombinedTest-${System.currentTimeMillis()}"
+        val testPrefix = "CombinedTest-${System.currentTimeMillis()}".take(20)
 
         // Given - Create test data
         val createDTOs = CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(30, testPrefix)

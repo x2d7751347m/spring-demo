@@ -1,14 +1,14 @@
 package com.example.demo.controllers
 
-import com.example.demo.model.CustomerCreateDTO
-import com.example.demo.model.CustomerDTO
-import com.example.demo.model.CustomerSearchRequest
-import com.example.demo.model.CustomerUpdateDTO
+import com.example.demo.model.*
 import com.example.demo.services.CustomerService
+import com.example.demo.utils.toMonoResponse
+import com.example.demo.utils.toMonoStatusOnly
 import com.example.demo.validator.commons.idListValidator
 import com.example.demo.validator.customerCreateListValidator
 import com.example.demo.validator.customerSearchRequestValidator
 import com.example.demo.validator.customerUpdateListValidator
+import io.konform.validation.ValidationError
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.reactor.mono
 import org.springframework.http.HttpStatus
@@ -29,17 +29,15 @@ class CustomerController(
     @DeleteMapping(CUSTOMER_PATH)
     fun deleteCustomersByIds(@RequestBody ids: List<Long>): Mono<ResponseEntity<Void>> {
         return mono {
-            idListValidator(ids).errors.let { errors ->
-                if (errors.isNotEmpty()) {
-                    throw ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Validation failed: ${errors.joinToString(", ")}"
-                    )
+            validateAndExecute(
+                data = ids,
+                validator = { idListValidator(it).errors },
+                action = {
+                    customerService.deleteEntitiesById(it)
                 }
-            }
-
-            customerService.deleteEntitiesById(ids)
-            ResponseEntity.noContent().build()
+            )
+        }.flatMap { result ->
+            result.toMonoStatusOnly(HttpStatus.NO_CONTENT)
         }
     }
 
@@ -48,34 +46,30 @@ class CustomerController(
         @RequestBody updateDTOs: List<CustomerUpdateDTO>,
     ): Mono<ResponseEntity<Void>> {
         return mono {
-            customerUpdateListValidator(updateDTOs).errors.let { errors ->
-                if (errors.isNotEmpty()) {
-                    throw ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Validation failed: ${errors.joinToString(", ")}"
-                    )
+            validateAndExecute(
+                data = updateDTOs,
+                validator = { customerUpdateListValidator(it).errors },
+                action = {
+                    customerService.patchEntities(it)
                 }
-            }
-
-            customerService.patchEntities(updateDTOs)
-            ResponseEntity.ok().build()
+            )
+        }.flatMap { result ->
+            result.toMonoStatusOnly(HttpStatus.OK)
         }
     }
 
     @PostMapping(CUSTOMER_PATH)
-    fun createNewCustomers(@RequestBody createDTOs: List<CustomerCreateDTO>): Mono<ResponseEntity<List<CustomerDTO>>> {
+    fun createNewCustomers(@RequestBody createDTOs: List<CustomerCreateDTO>): Mono<ResponseEntity<ServiceResult<List<CustomerDTO>>>> {
         return mono {
-            customerCreateListValidator(createDTOs).errors.let { errors ->
-                if (errors.isNotEmpty()) {
-                    throw ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Validation failed: ${errors.joinToString(", ")}"
-                    )
+            validateAndExecute(
+                data = createDTOs,
+                validator = { customerCreateListValidator(it).errors },
+                action = {
+                    customerService.saveNewEntities(it)
                 }
-            }
-
-            val savedCustomers = customerService.saveNewEntities(createDTOs)
-            ResponseEntity.status(HttpStatus.CREATED).body(savedCustomers)
+            )
+        }.flatMap { result ->
+            result.toMonoResponse(HttpStatus.CREATED)
         }
     }
 
@@ -91,5 +85,18 @@ class CustomerController(
         }
 
         return customerService.getEntities(searchRequestBody)
+    }
+
+    private suspend fun <T, R> validateAndExecute(
+        data: T,
+        validator: (T) -> List<ValidationError>,
+        action: suspend (T) -> R,
+    ): ServiceResult<R> {
+        val errors = validator(data)
+        return if (errors.isNotEmpty()) {
+            ServiceResult.error("Validation failed", errors.map { error -> error.message })
+        } else {
+            ServiceResult.ok(action(data))
+        }
     }
 }

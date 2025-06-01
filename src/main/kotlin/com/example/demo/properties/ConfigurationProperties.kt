@@ -29,7 +29,7 @@ data class PoolProperties(
     val maxIdleTime: Duration = Duration.ofSeconds(30),
 )
 
-//@ConfigurationProperties(prefix = "database.initial")
+@ConfigurationProperties(prefix = "database.initial")
 data class InitialDatabaseProperties(
     val protocol: String = "postgresql",
     val host: String = "localhost",

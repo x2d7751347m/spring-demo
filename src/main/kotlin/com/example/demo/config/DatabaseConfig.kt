@@ -5,10 +5,9 @@ import io.r2dbc.spi.ConnectionFactoryOptions
 import io.r2dbc.spi.Option
 import org.komapper.r2dbc.R2dbcDatabase
 import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Primary
 
-@Configuration
+//@Configuration
 class DatabaseConfig(
     private val databaseProperties: DatabaseProperties,
 //    private val initialDatabaseProperties: InitialDatabaseProperties,

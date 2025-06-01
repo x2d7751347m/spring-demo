@@ -37,6 +37,7 @@ val springdoc_version: String by project
 val komapper_version: String by project
 
 dependencies {
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     platform("org.komapper:komapper-platform:$komapper_version").let {
         implementation(it)
         ksp(it)

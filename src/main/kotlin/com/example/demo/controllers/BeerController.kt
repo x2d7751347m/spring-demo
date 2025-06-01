@@ -1,14 +1,14 @@
 package com.example.demo.controllers
 
-import com.example.demo.model.BeerCreateDTO
-import com.example.demo.model.BeerDTO
-import com.example.demo.model.BeerSearchRequest
-import com.example.demo.model.BeerUpdateDTO
+import com.example.demo.model.*
 import com.example.demo.services.BeerService
+import com.example.demo.utils.toMonoResponse
+import com.example.demo.utils.toMonoStatusOnly
 import com.example.demo.validator.beerCreateListValidator
 import com.example.demo.validator.beerSearchRequestValidator
 import com.example.demo.validator.beerUpdateListValidator
 import com.example.demo.validator.commons.idListValidator
+import io.konform.validation.ValidationError
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.reactor.mono
 import org.springframework.http.HttpStatus
@@ -29,16 +29,15 @@ class BeerController(
     @DeleteMapping(BEER_PATH)
     fun deleteBeersByIds(@RequestBody ids: List<Long>): Mono<ResponseEntity<Void>> {
         return mono {
-            idListValidator(ids).errors.let { errors ->
-                if (errors.isNotEmpty()) {
-                    throw ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Validation failed: ${errors.joinToString(", ")}"
-                    )
+            validateAndExecute(
+                data = ids,
+                validator = { idListValidator(it).errors },
+                action = {
+                    beerService.deleteEntitiesById(it)
                 }
-            }
-            beerService.deleteEntitiesById(ids)
-            ResponseEntity.noContent().build()
+            )
+        }.flatMap { result ->
+            result.toMonoStatusOnly(HttpStatus.NO_CONTENT)
         }
     }
 
@@ -47,34 +46,30 @@ class BeerController(
         @RequestBody updateDTOs: List<BeerUpdateDTO>,
     ): Mono<ResponseEntity<Void>> {
         return mono {
-            beerUpdateListValidator(updateDTOs).errors.let { errors ->
-                if (errors.isNotEmpty()) {
-                    throw ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Validation failed: ${errors.joinToString(", ")}"
-                    )
+            validateAndExecute(
+                data = updateDTOs,
+                validator = { beerUpdateListValidator(it).errors },
+                action = {
+                    beerService.patchEntities(it)
                 }
-            }
-
-            beerService.patchEntities(updateDTOs)
-            ResponseEntity.ok().build()
+            )
+        }.flatMap { result ->
+            result.toMonoStatusOnly(HttpStatus.OK)
         }
     }
 
     @PostMapping(BEER_PATH)
-    fun createNewBeers(@RequestBody createDTOs: List<BeerCreateDTO>): Mono<ResponseEntity<List<BeerDTO>>> {
+    fun createNewBeers(@RequestBody createDTOs: List<BeerCreateDTO>): Mono<ResponseEntity<ServiceResult<List<BeerDTO>>>> {
         return mono {
-            beerCreateListValidator(createDTOs).errors.let { errors ->
-                if (errors.isNotEmpty()) {
-                    throw ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Validation failed: ${errors.joinToString(", ")}"
-                    )
+            validateAndExecute(
+                data = createDTOs,
+                validator = { beerCreateListValidator(it).errors },
+                action = {
+                    beerService.saveNewEntities(it)
                 }
-            }
-
-            val savedBeers = beerService.saveNewEntities(createDTOs)
-            ResponseEntity.status(HttpStatus.CREATED).body(savedBeers)
+            )
+        }.flatMap { result ->
+            result.toMonoResponse(HttpStatus.CREATED)
         }
     }
 
@@ -90,5 +85,18 @@ class BeerController(
         }
 
         return beerService.getEntities(searchRequestBody)
+    }
+
+    private suspend fun <T, R> validateAndExecute(
+        data: T,
+        validator: (T) -> List<ValidationError>,
+        action: suspend (T) -> R,
+    ): ServiceResult<R> {
+        val errors = validator(data)
+        return if (errors.isNotEmpty()) {
+            ServiceResult.error("Validation failed", errors.map { error -> error.message })
+        } else {
+            ServiceResult.ok(action(data))
+        }
     }
 }
