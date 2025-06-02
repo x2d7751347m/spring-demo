@@ -3,7 +3,6 @@ package com.example.demo.services
 import com.example.demo.domain.beer
 import com.example.demo.domain.customer
 import com.example.demo.properties.DatabaseProperties
-import com.example.demo.properties.InitialDatabaseProperties
 import io.r2dbc.spi.ConnectionFactoryOptions
 import io.r2dbc.spi.R2dbcBadGrammarException
 import io.r2dbc.spi.R2dbcNonTransientResourceException
@@ -19,7 +18,6 @@ class DatabaseInitService(
 //    @Qualifier("writeDatabase")
     private val writeDatabase: R2dbcDatabase,
     private val databaseProperties: DatabaseProperties,
-    private val initialDatabaseProperties: InitialDatabaseProperties,
 ) {
     private val logger = LoggerFactory.getLogger(DatabaseInitService::class.java)
 
@@ -30,11 +28,11 @@ class DatabaseInitService(
 
         val initialDatabase: R2dbcDatabase by lazy {
             val options = ConnectionFactoryOptions.builder()
-                .option(ConnectionFactoryOptions.DRIVER, initialDatabaseProperties.protocol)
-                .option(ConnectionFactoryOptions.HOST, initialDatabaseProperties.host)
-                .option(ConnectionFactoryOptions.PORT, initialDatabaseProperties.port)
-                .option(ConnectionFactoryOptions.USER, initialDatabaseProperties.username)
-                .option(ConnectionFactoryOptions.PASSWORD, initialDatabaseProperties.password)
+                .option(ConnectionFactoryOptions.DRIVER, databaseProperties.write.protocol)
+                .option(ConnectionFactoryOptions.HOST, databaseProperties.write.host)
+                .option(ConnectionFactoryOptions.PORT, databaseProperties.write.port)
+                .option(ConnectionFactoryOptions.USER, databaseProperties.write.username)
+                .option(ConnectionFactoryOptions.PASSWORD, databaseProperties.write.password)
                 .build()
 
             R2dbcDatabase(options)
@@ -58,11 +56,11 @@ class DatabaseInitService(
 
             val initialDatabase: R2dbcDatabase by lazy {
                 val options = ConnectionFactoryOptions.builder()
-                    .option(ConnectionFactoryOptions.DRIVER, initialDatabaseProperties.protocol)
-                    .option(ConnectionFactoryOptions.HOST, initialDatabaseProperties.host)
-                    .option(ConnectionFactoryOptions.PORT, initialDatabaseProperties.port)
-                    .option(ConnectionFactoryOptions.USER, initialDatabaseProperties.username)
-                    .option(ConnectionFactoryOptions.PASSWORD, initialDatabaseProperties.password)
+                    .option(ConnectionFactoryOptions.DRIVER, databaseProperties.write.protocol)
+                    .option(ConnectionFactoryOptions.HOST, databaseProperties.write.host)
+                    .option(ConnectionFactoryOptions.PORT, databaseProperties.write.port)
+                    .option(ConnectionFactoryOptions.USER, databaseProperties.write.username)
+                    .option(ConnectionFactoryOptions.PASSWORD, databaseProperties.write.password)
                     .build()
 
                 R2dbcDatabase(options)

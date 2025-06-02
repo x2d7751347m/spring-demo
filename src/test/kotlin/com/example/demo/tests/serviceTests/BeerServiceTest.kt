@@ -1,22 +1,17 @@
 package com.example.demo.tests.serviceTests
 
 import com.example.demo.TestContainersConfiguration
-import com.example.demo.mappers.BeerMapper
 import com.example.demo.model.BeerCreateDTO
 import com.example.demo.model.BeerSearchRequest
 import com.example.demo.model.BeerUpdateDTO
-import com.example.demo.repositories.BeerRepository
 import com.example.demo.services.BeerService
-import com.example.demo.services.BeerServiceImpl
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
-import org.komapper.r2dbc.R2dbcDatabase
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
@@ -30,23 +25,7 @@ import kotlin.random.Random
 class BeerServiceTest {
 
     @Autowired
-    private lateinit var database: R2dbcDatabase
-
-    private lateinit var beerRepository: BeerRepository
     private lateinit var beerService: BeerService
-
-    @Autowired
-    private lateinit var beerMapper: BeerMapper
-    private var initialized = false
-
-    @BeforeEach
-    fun setUp() = runTest {
-        if (!initialized) {
-            beerRepository = BeerRepository(database)
-            beerService = BeerServiceImpl(beerRepository, beerMapper)
-            initialized = true
-        }
-    }
 
     @ParameterizedTest
     @ValueSource(ints = [1, 3, 5, 10, 25])

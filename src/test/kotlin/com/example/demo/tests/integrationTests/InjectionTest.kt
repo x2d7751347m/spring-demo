@@ -1,33 +1,21 @@
-package com.example.demo.tests.integrationTests
+﻿package com.example.demo.tests.integrationTests
 
 import com.example.demo.TestContainersConfiguration
 import com.example.demo.controllers.BeerController
 import com.example.demo.generators.BeerTestDataGenerator
-import com.example.demo.mappers.BeerMapper
-import com.example.demo.model.*
-import com.example.demo.properties.DatabaseProperties
-import com.example.demo.properties.InitialDatabaseProperties
-import com.example.demo.repositories.BeerRepository
-import com.example.demo.services.BeerService
-import com.example.demo.services.BeerServiceImpl
+import com.example.demo.model.BeerDTO
+import com.example.demo.model.ServiceResult
 import com.example.demo.services.DatabaseInitService
-import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
-import org.komapper.r2dbc.R2dbcDatabase
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
-import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
 import org.springframework.test.web.reactive.server.WebTestClient
 import org.springframework.test.web.reactive.server.expectBody
-import org.springframework.test.web.reactive.server.expectBodyList
 import org.testcontainers.junit.jupiter.Testcontainers
 import java.math.BigDecimal
 import kotlin.test.assertEquals
@@ -35,15 +23,15 @@ import kotlin.test.assertTrue
 
 // The following two annotations are enabled if you use Testcontainers
 
-//@Testcontainers
-//@Import(TestContainersConfiguration::class)
+@Testcontainers
+@Import(TestContainersConfiguration::class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class InjectionTest {
 
     @Autowired
     private lateinit var webTestClient: WebTestClient
 
-//    @Autowired
+    //    @Autowired
 //    private lateinit var database: R2dbcDatabase
 //
 //    @Autowired
@@ -58,38 +46,34 @@ class InjectionTest {
 //    @Autowired
 //    private lateinit var beerMapper: BeerMapper
 //
-//    private lateinit var databaseInitService: DatabaseInitService
-//
+    @Autowired
+    private lateinit var databaseInitService: DatabaseInitService
+
+    //
 //    @Autowired
 //    private lateinit var databaseProperties: DatabaseProperties
 //
 //    @Autowired
 //    private lateinit var initialDatabaseProperties: InitialDatabaseProperties
 //
-//    private var initialized = false
+    private var initialized = false
 
-    // Track created IDs for each test to avoid interference
-    private val testCreatedIds = mutableSetOf<Long>()
-
-//    @BeforeEach
-//    fun setUp() = runTest {
-//        if (!initialized) {
+    @BeforeEach
+    fun setUp() = runTest {
+        if (!initialized) {
 //            beerService = BeerServiceImpl(BeerRepository(database), beerMapper)
 //            databaseInitService = DatabaseInitService(database, databaseProperties, initialDatabaseProperties)
-//            databaseInitService.initializeDatabase()
-//            databaseInitService.createTables()
+            databaseInitService.initializeDatabase()
+            databaseInitService.createTables()
 //            beerController = BeerController(beerService)
-//
+
 //            webTestClient = WebTestClient
 //                .bindToController(beerController)
 //                .configureClient()
 //                .build()
-//            initialized = true
-//        }
-//
-//        // Clear test tracking for each test
-//        testCreatedIds.clear()
-//    }
+            initialized = true
+        }
+    }
 
 //    @AfterEach
 //    fun tearDown() = runTest {
@@ -126,9 +110,6 @@ class InjectionTest {
         assertTrue(serviceResult is ServiceResult.Ok, "Expected successful ServiceResult")
         val createdBeers = serviceResult.value
         assertEquals(count, createdBeers.size)
-
-        // Track created IDs for cleanup
-        testCreatedIds.addAll(createdBeers.map { it.id })
 
         // Verify all created beers have valid properties
         createdBeers.forEach { beer ->

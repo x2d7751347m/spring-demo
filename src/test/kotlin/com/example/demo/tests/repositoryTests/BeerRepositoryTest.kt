@@ -3,15 +3,14 @@ package com.example.demo.tests.repositoryTests
 import com.example.demo.TestContainersConfiguration
 import com.example.demo.domain.Beer
 import com.example.demo.generators.BeerTestDataGenerator
+import com.example.demo.mappers.BeerMapper
 import com.example.demo.repositories.BeerRepository
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
-import org.komapper.r2dbc.R2dbcDatabase
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
@@ -31,40 +30,14 @@ import kotlin.test.assertTrue
 class BeerRepositoryTest {
 
     @Autowired
-    private lateinit var database: R2dbcDatabase
     private lateinit var beerRepository: BeerRepository
 
-    private var initialized = false
+    @Autowired
+    private lateinit var beerMapper: BeerMapper
 
-    // Test-specific data tracking
-    private val testCreatedIds = mutableSetOf<Long>()
-
-    @BeforeEach
-    fun setUp() = runTest {
-        if (!initialized) {
-            beerRepository = BeerRepository(database)
-            initialized = true
-        }
-        testCreatedIds.clear()
-    }
-
-    // Helper function to convert BeerCreateDTO to Beer domain object
-    private fun createDTOToBeer(dto: com.example.demo.model.BeerCreateDTO): Beer {
-        return Beer(
-            id = 0L,
-            beerName = dto.beerName,
-            beerStyle = dto.beerStyle,
-            upc = dto.upc,
-            quantityOnHand = dto.quantityOnHand,
-            price = dto.price
-        )
-    }
-
-    // Helper to track and insert beers for current test
+    // Helper to insert beers
     private suspend fun insertTestBeers(beers: List<Beer>): List<Beer> {
-        val inserted = beerRepository.insertEntities(beers)
-        testCreatedIds.addAll(inserted.map { it.id })
-        return inserted
+        return beerRepository.insertEntities(beers)
     }
 
     @ParameterizedTest
@@ -73,7 +46,7 @@ class BeerRepositoryTest {
         // Given
         val testUuid = UUID.randomUUID().toString()
         val randomBeerDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(count, "BatchInsert-$testUuid")
-        val randomBeers = randomBeerDTOs.map { createDTOToBeer(it) }
+        val randomBeers = randomBeerDTOs.map { beerMapper.beerCreateDtoToBeer(it) }
 
         // When
         val insertedBeers = insertTestBeers(randomBeers)
@@ -107,7 +80,7 @@ class BeerRepositoryTest {
         val testUuid = UUID.randomUUID().toString()
         val totalDataCount = max(size * page + 10, 60)
         val totalBeerDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(totalDataCount, "Pagination-$testUuid")
-        val totalBeers = totalBeerDTOs.map { createDTOToBeer(it) }
+        val totalBeers = totalBeerDTOs.map { beerMapper.beerCreateDtoToBeer(it) }
         val insertedBeers = insertTestBeers(totalBeers)
 
         // When - Get entities by IDs with pagination, handling 100 ID limit per request
@@ -164,7 +137,7 @@ class BeerRepositoryTest {
         // Given
         val testUuid = UUID.randomUUID().toString()
         val randomBeerDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(datasetSize, "NameFilter-$testUuid")
-        val randomBeers = randomBeerDTOs.map { createDTOToBeer(it) }
+        val randomBeers = randomBeerDTOs.map { beerMapper.beerCreateDtoToBeer(it) }
         val insertedBeers = insertTestBeers(randomBeers)
         val targetBeer = insertedBeers.random()
 
@@ -178,7 +151,6 @@ class BeerRepositoryTest {
         assertTrue(filteredBeers.isNotEmpty(), "Should find at least one beer with name ${targetBeer.beerName}")
         filteredBeers.forEach { beer ->
             assertEquals(targetBeer.beerName, beer.beerName)
-            assertTrue(testCreatedIds.contains(beer.id), "Beer should belong to this test")
         }
         // Verify the specific beer is in the results
         assertTrue(filteredBeers.any { it.id == targetBeer.id })
@@ -204,7 +176,7 @@ class BeerRepositoryTest {
 
         val otherCount = totalCount - matchingCount
         val otherBeerDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(otherCount, "Other-$testUuid")
-        val otherBeers = otherBeerDTOs.map { createDTOToBeer(it) }
+        val otherBeers = otherBeerDTOs.map { beerMapper.beerCreateDtoToBeer(it) }
 
         val allInserted = insertTestBeers(specificBeers + otherBeers)
 
@@ -224,7 +196,6 @@ class BeerRepositoryTest {
                 beer.beerName.contains(testUuid, ignoreCase = true),
                 "Beer name '${beer.beerName}' should contain '$testUuid'"
             )
-            assertTrue(testCreatedIds.contains(beer.id), "Beer should belong to this test")
         }
     }
 
@@ -251,7 +222,7 @@ class BeerRepositoryTest {
         }
 
         val otherBeerDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(otherCount, "Other-$testUuid")
-        val otherBeers = otherBeerDTOs.map { createDTOToBeer(it) }
+        val otherBeers = otherBeerDTOs.map { beerMapper.beerCreateDtoToBeer(it) }
 
         val allInserted = insertTestBeers(specificBeers + otherBeers)
 
@@ -268,7 +239,6 @@ class BeerRepositoryTest {
         )
         filteredBeers.forEach { beer ->
             assertEquals(specificStyle, beer.beerStyle)
-            assertTrue(testCreatedIds.contains(beer.id), "Beer should belong to this test")
         }
     }
 
@@ -278,7 +248,7 @@ class BeerRepositoryTest {
         // Given
         val testUuid = UUID.randomUUID().toString()
         val randomBeerDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(datasetSize, "PriceFilter-$testUuid")
-        val randomBeers = randomBeerDTOs.map { createDTOToBeer(it) }
+        val randomBeers = randomBeerDTOs.map { beerMapper.beerCreateDtoToBeer(it) }
         val insertedBeers = insertTestBeers(randomBeers)
 
         // Generate reasonable price range based on inserted data
@@ -303,7 +273,6 @@ class BeerRepositoryTest {
         filteredBeers.forEach { beer ->
             assertTrue(beer.price >= minPrice, "Price ${beer.price} should be >= $minPrice")
             assertTrue(beer.price <= maxPrice, "Price ${beer.price} should be <= $maxPrice")
-            assertTrue(testCreatedIds.contains(beer.id), "Beer should belong to this test")
         }
 
         // Verify the filtering is actually working by checking we didn't get all beers
@@ -335,7 +304,7 @@ class BeerRepositoryTest {
             }
 
             val otherBeerDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(otherCount, "Other-$testUuid")
-            val otherBeers = otherBeerDTOs.map { createDTOToBeer(it) }
+            val otherBeers = otherBeerDTOs.map { beerMapper.beerCreateDtoToBeer(it) }
 
             val allInserted = insertTestBeers(specificBeers + otherBeers)
 
@@ -352,7 +321,6 @@ class BeerRepositoryTest {
             )
             filteredBeers.forEach { beer ->
                 assertEquals(targetQuantity, beer.quantityOnHand)
-                assertTrue(testCreatedIds.contains(beer.id), "Beer should belong to this test")
             }
         }
 
@@ -362,7 +330,7 @@ class BeerRepositoryTest {
         // Given
         val testUuid = UUID.randomUUID().toString()
         val originalBeerDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(datasetSize, "PatchTest-$testUuid")
-        val originalBeers = originalBeerDTOs.map { createDTOToBeer(it) }
+        val originalBeers = originalBeerDTOs.map { beerMapper.beerCreateDtoToBeer(it) }
         val insertedBeers = insertTestBeers(originalBeers)
 
         // Update between 30% to 70% of the beers dynamically
@@ -381,7 +349,6 @@ class BeerRepositoryTest {
 
         updateDTOs.forEach { updateDTO ->
             val updatedBeer = updatedBeers.first { it.id == updateDTO.id }
-            assertTrue(testCreatedIds.contains(updatedBeer.id), "Updated beer should belong to this test")
 
             updateDTO.beerName?.let { assertEquals(it, updatedBeer.beerName) }
             updateDTO.beerStyle?.let { assertEquals(it, updatedBeer.beerStyle) }
@@ -397,7 +364,7 @@ class BeerRepositoryTest {
         // Given
         val testUuid = UUID.randomUUID().toString()
         val originalBeerDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(datasetSize, "DeleteTest-$testUuid")
-        val originalBeers = originalBeerDTOs.map { createDTOToBeer(it) }
+        val originalBeers = originalBeerDTOs.map { beerMapper.beerCreateDtoToBeer(it) }
         val insertedBeers = insertTestBeers(originalBeers)
 
         // Delete between 20% to 60% of beers dynamically
@@ -416,16 +383,12 @@ class BeerRepositoryTest {
 
         remainingTestBeers.forEach { beer ->
             assertTrue(beer.id !in deletedIds, "Deleted beer with ID ${beer.id} should not exist")
-            assertTrue(testCreatedIds.contains(beer.id), "Remaining beer should belong to this test")
         }
 
         assertEquals(
             expectedRemainingCount, remainingTestBeers.size,
             "Should have exactly $expectedRemainingCount beers remaining from our test data"
         )
-
-        // Update our tracking
-        testCreatedIds.removeAll(deletedIds)
     }
 
     @ParameterizedTest
@@ -434,7 +397,7 @@ class BeerRepositoryTest {
         // Given
         val testUuid = UUID.randomUUID().toString()
         val randomBeerDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(datasetSize, "MultiFilter-$testUuid")
-        val randomBeers = randomBeerDTOs.map { createDTOToBeer(it) }
+        val randomBeers = randomBeerDTOs.map { beerMapper.beerCreateDtoToBeer(it) }
         val insertedBeers = insertTestBeers(randomBeers)
 
         // Create filters that should reasonably match some of the data
@@ -466,7 +429,6 @@ class BeerRepositoryTest {
                 targetQuantity, beer.quantityOnHand,
                 "Quantity should be exactly $targetQuantity"
             )
-            assertTrue(testCreatedIds.contains(beer.id), "Beer should belong to this test")
         }
 
         // Verify the filter is working by checking manual count
@@ -490,7 +452,7 @@ class BeerRepositoryTest {
             emptyList()
         } else {
             val beerDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(count, "VariousSize-$testUuid")
-            beerDTOs.map { createDTOToBeer(it) }
+            beerDTOs.map { beerMapper.beerCreateDtoToBeer(it) }
         }
 
         // When
@@ -505,7 +467,6 @@ class BeerRepositoryTest {
 
             result.forEach { beer ->
                 assertTrue(beer.id > 0L)
-                assertTrue(testCreatedIds.contains(beer.id))
             }
         }
     }
@@ -516,7 +477,7 @@ class BeerRepositoryTest {
         // Given
         val testUuid = UUID.randomUUID().toString()
         val largeBeerDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(datasetSize, "StressTest-$testUuid")
-        val largeDataset = largeBeerDTOs.map { createDTOToBeer(it) }
+        val largeDataset = largeBeerDTOs.map { beerMapper.beerCreateDtoToBeer(it) }
 
         // When - Insert
         val insertedBeers = insertTestBeers(largeDataset)
@@ -544,15 +505,11 @@ class BeerRepositoryTest {
             "Should have exactly $expectedRemainingCount beers after operations on $datasetSize dataset"
         )
 
-        // Verify no deleted beers remain and all remaining belong to this test
+        // Verify no deleted beers remain
         val deletedIds = randomDeletions.toSet()
         finalBeers.forEach { beer ->
             assertTrue(beer.id !in deletedIds, "Deleted beer should not exist")
-            assertTrue(testCreatedIds.contains(beer.id), "Remaining beer should belong to this test")
         }
-
-        // Update tracking
-        testCreatedIds.removeAll(deletedIds)
     }
 
     // Optional: Test for handling concurrent operations on different datasets
@@ -565,8 +522,8 @@ class BeerRepositoryTest {
         val dataset1DTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(10, "Concurrent1-$testUuid1")
         val dataset2DTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(10, "Concurrent2-$testUuid2")
 
-        val dataset1 = dataset1DTOs.map { createDTOToBeer(it) }
-        val dataset2 = dataset2DTOs.map { createDTOToBeer(it) }
+        val dataset1 = dataset1DTOs.map { beerMapper.beerCreateDtoToBeer(it) }
+        val dataset2 = dataset2DTOs.map { beerMapper.beerCreateDtoToBeer(it) }
 
         // Insert both datasets
         val inserted1 = beerRepository.insertEntities(dataset1)

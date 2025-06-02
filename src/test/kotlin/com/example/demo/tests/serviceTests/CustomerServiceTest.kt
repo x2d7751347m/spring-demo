@@ -1,22 +1,17 @@
 package com.example.demo.tests.serviceTests
 
 import com.example.demo.TestContainersConfiguration
-import com.example.demo.mappers.CustomerMapper
 import com.example.demo.model.CustomerCreateDTO
 import com.example.demo.model.CustomerSearchRequest
 import com.example.demo.model.CustomerUpdateDTO
-import com.example.demo.repositories.CustomerRepository
 import com.example.demo.services.CustomerService
-import com.example.demo.services.CustomerServiceImpl
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
-import org.komapper.r2dbc.R2dbcDatabase
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
@@ -29,23 +24,7 @@ import kotlin.random.Random
 class CustomerServiceTest {
 
     @Autowired
-    private lateinit var database: R2dbcDatabase
-
-    private lateinit var customerRepository: CustomerRepository
     private lateinit var customerService: CustomerService
-
-    @Autowired
-    private lateinit var customerMapper: CustomerMapper
-    private var initialized = false
-
-    @BeforeEach
-    fun setUp() = runTest {
-        if (!initialized) {
-            customerRepository = CustomerRepository(database)
-            customerService = CustomerServiceImpl(customerRepository, customerMapper)
-            initialized = true
-        }
-    }
 
     @ParameterizedTest
     @ValueSource(ints = [1, 3, 5, 10, 25])

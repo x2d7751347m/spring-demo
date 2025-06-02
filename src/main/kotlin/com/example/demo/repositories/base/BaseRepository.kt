@@ -16,8 +16,8 @@ interface BaseIdDTO {
 // Generic Base Repository class
 // Constrain ENTITY_DEF to be an EntityMetamodel
 abstract class BaseRepository<ENTITY : Any, UPDATE_DTO : BaseIdDTO, ID : Any, ENTITY_DEF : EntityMetamodel<ENTITY, ID, ENTITY_DEF>>(
-    protected val database: R2dbcDatabase,
-    protected val entityDef: ENTITY_DEF,
+    protected open val database: R2dbcDatabase,
+    protected open val entityDef: ENTITY_DEF,
 ) {
     /**
      * Inserts multiple entities into the database.

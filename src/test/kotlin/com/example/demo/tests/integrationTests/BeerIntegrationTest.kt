@@ -3,23 +3,14 @@ package com.example.demo.tests.integrationTests
 import com.example.demo.TestContainersConfiguration
 import com.example.demo.controllers.BeerController
 import com.example.demo.generators.BeerTestDataGenerator
-import com.example.demo.mappers.BeerMapper
 import com.example.demo.model.*
-import com.example.demo.properties.DatabaseProperties
-import com.example.demo.properties.InitialDatabaseProperties
-import com.example.demo.repositories.BeerRepository
 import com.example.demo.services.BeerService
-import com.example.demo.services.BeerServiceImpl
-import com.example.demo.services.DatabaseInitService
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
-import org.komapper.r2dbc.R2dbcDatabase
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
@@ -42,65 +33,7 @@ class BeerIntegrationTest {
     private lateinit var webTestClient: WebTestClient
 
     @Autowired
-    private lateinit var database: R2dbcDatabase
-
-    //    @Autowired
-    private lateinit var beerRepository: BeerRepository
-
-    @Autowired
     private lateinit var beerService: BeerService
-
-    //    @Autowired
-    private lateinit var beerController: BeerController
-
-    @Autowired
-    private lateinit var beerMapper: BeerMapper
-
-    private lateinit var databaseInitService: DatabaseInitService
-
-    @Autowired
-    private lateinit var databaseProperties: DatabaseProperties
-
-    @Autowired
-    private lateinit var initialDatabaseProperties: InitialDatabaseProperties
-
-    private var initialized = false
-
-    // Track created IDs for each test to avoid interference
-    private val testCreatedIds = mutableSetOf<Long>()
-
-    @BeforeEach
-    fun setUp() = runTest {
-        if (!initialized) {
-            beerService = BeerServiceImpl(BeerRepository(database), beerMapper)
-//            databaseInitService = DatabaseInitService(database, databaseProperties, initialDatabaseProperties)
-//            databaseInitService.initializeDatabase()
-//            databaseInitService.createTables()
-            beerController = BeerController(beerService)
-
-            webTestClient = WebTestClient
-                .bindToController(beerController)
-                .configureClient()
-                .build()
-            initialized = true
-        }
-
-        // Clear test tracking for each test
-        testCreatedIds.clear()
-    }
-
-    @AfterEach
-    fun tearDown() = runTest {
-        // Clean up only the data created in this specific test
-        if (testCreatedIds.isNotEmpty()) {
-            try {
-                beerService.deleteEntitiesById(testCreatedIds.toList())
-            } catch (e: Exception) {
-                // Ignore cleanup errors - some tests might have already deleted the data
-            }
-        }
-        testCreatedIds.clear()
-    }
 
     // CREATE Tests - Parameterized with various counts
     @ParameterizedTest
@@ -124,9 +57,6 @@ class BeerIntegrationTest {
         assertTrue(serviceResult is ServiceResult.Ok, "Expected successful ServiceResult")
         val createdBeers = serviceResult.value
         assertEquals(count, createdBeers.size)
-
-        // Track created IDs for cleanup
-        testCreatedIds.addAll(createdBeers.map { it.id })
 
         // Verify all created beers have valid properties
         createdBeers.forEach { beer ->
@@ -153,10 +83,10 @@ class BeerIntegrationTest {
         val totalBeers = 100
         val createDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(totalBeers, "PaginationTest")
         val createdBeers = beerService.saveNewEntities(createDTOs)
-        testCreatedIds.addAll(createdBeers.map { it.id })
+        val createdBeerIds = createdBeers.map { it.id }
 
         val searchRequest = BeerSearchRequest(
-            ids = createdBeers.map { it.id } // Only search within our created beers
+            ids = createdBeerIds // Only search within our created beers
         )
 
         // When & Then
@@ -175,7 +105,7 @@ class BeerIntegrationTest {
 
         foundBeers.forEach { beer ->
             assertTrue(beer.id > 0L)
-            assertTrue(beer.id in testCreatedIds, "Found beer should be one we created in this test")
+            assertTrue(beer.id in createdBeerIds, "Found beer should be one we created in this test")
         }
     }
 
@@ -192,7 +122,6 @@ class BeerIntegrationTest {
             // Given - Create test data first
             val createDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(totalBeers, "PatchTest-$totalBeers")
             val createdBeers = beerService.saveNewEntities(createDTOs)
-            testCreatedIds.addAll(createdBeers.map { it.id })
 
             val updateDTOs = BeerTestDataGenerator.generateRandomBeerUpdateDTOs(createdBeers.map { it.id }, updateRatio)
             val expectedUpdateCount = (totalBeers * updateRatio).toInt()
@@ -241,10 +170,10 @@ class BeerIntegrationTest {
         val totalBeers = deleteCount + 20
         val createDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(totalBeers, "DeleteTest-$deleteCount")
         val createdBeers = beerService.saveNewEntities(createDTOs)
-        testCreatedIds.addAll(createdBeers.map { it.id })
 
         val beersToDelete = createdBeers.shuffled().take(deleteCount)
         val idsToDelete = beersToDelete.map { it.id }
+        val remainingIds = createdBeers.map { it.id } - idsToDelete.toSet()
 
         // When & Then
         webTestClient
@@ -255,11 +184,7 @@ class BeerIntegrationTest {
             .exchange()
             .expectStatus().isNoContent
 
-        // Remove deleted IDs from our tracking (they're already deleted)
-        testCreatedIds.removeAll(idsToDelete.toSet())
-
-        // Verify deletion - search only within remaining IDs we created
-        val remainingIds = testCreatedIds.toList()
+        // Verify deletion - search only within remaining IDs
         if (remainingIds.isNotEmpty()) {
             val searchRequest = BeerSearchRequest(page = 1, size = totalBeers, ids = remainingIds)
             val remainingBeers = beerService.getEntities(searchRequest).toList()
@@ -274,7 +199,7 @@ class BeerIntegrationTest {
 
             remainingBeers.forEach { beer ->
                 assertTrue(beer.id !in deletedIds, "Deleted beer with ID ${beer.id} should not exist")
-                assertTrue(beer.id in testCreatedIds, "Remaining beer should be one we created")
+                assertTrue(beer.id in remainingIds, "Remaining beer should be one we created")
             }
         }
     }
@@ -291,7 +216,7 @@ class BeerIntegrationTest {
         // Given - Create beers with various prices
         val createDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(50, "PriceTest")
         val createdBeers = beerService.saveNewEntities(createDTOs)
-        testCreatedIds.addAll(createdBeers.map { it.id })
+        val createdBeerIds = createdBeers.map { it.id }
 
         val minPriceBD = BigDecimal(minPrice)
         val maxPriceBD = BigDecimal(maxPrice)
@@ -301,7 +226,7 @@ class BeerIntegrationTest {
             size = 100,
             minPrice = minPriceBD,
             maxPrice = maxPriceBD,
-            ids = createdBeers.map { it.id } // Only search within our created beers
+            ids = createdBeerIds // Only search within our created beers
         )
 
         // When & Then
@@ -319,7 +244,7 @@ class BeerIntegrationTest {
         foundBeers.forEach { beer ->
             assertTrue(beer.price >= minPriceBD, "Price ${beer.price} should be >= $minPriceBD")
             assertTrue(beer.price <= maxPriceBD, "Price ${beer.price} should be <= $maxPriceBD")
-            assertTrue(beer.id in testCreatedIds, "Found beer should be one we created")
+            assertTrue(beer.id in createdBeerIds, "Found beer should be one we created")
         }
     }
 
@@ -352,13 +277,13 @@ class BeerIntegrationTest {
         assertTrue(serviceResult is ServiceResult.Ok, "Expected successful ServiceResult")
         val createdBeers = serviceResult.value
         assertEquals(createCount, createdBeers.size)
-        testCreatedIds.addAll(createdBeers.map { it.id })
+        val createdBeerIds = createdBeers.map { it.id }
 
         // Step 2: Search for created beers using their IDs
         val searchRequest = BeerSearchRequest(
             page = 1,
             size = createCount + 50,
-            ids = createdBeers.map { it.id }
+            ids = createdBeerIds
         )
         val searchResponse = webTestClient
             .post()
@@ -374,7 +299,7 @@ class BeerIntegrationTest {
         assertEquals(createCount, foundBeers.size, "Should find exactly the beers we created")
 
         // Step 3: Update some beers
-        val updateDTOs = BeerTestDataGenerator.generateRandomBeerUpdateDTOs(createdBeers.map { it.id }, updateRatio)
+        val updateDTOs = BeerTestDataGenerator.generateRandomBeerUpdateDTOs(createdBeerIds, updateRatio)
         val expectedUpdateCount = (createCount * updateRatio).toInt()
         assertEquals(expectedUpdateCount, updateDTOs.size, "Update count should match expected ratio")
 
@@ -396,11 +321,8 @@ class BeerIntegrationTest {
             .exchange()
             .expectStatus().isNoContent
 
-        // Remove deleted IDs from tracking
-        testCreatedIds.removeAll(idsToDelete.toSet())
-
         // Step 5: Verify final state - search only remaining IDs
-        val remainingIds = testCreatedIds.toList()
+        val remainingIds = createdBeerIds - idsToDelete.toSet()
         if (remainingIds.isNotEmpty()) {
             val finalSearchRequest = BeerSearchRequest(
                 page = 1,
@@ -427,7 +349,7 @@ class BeerIntegrationTest {
             val deletedIds = idsToDelete.toSet()
             finalBeers.forEach { beer ->
                 assertTrue(beer.id !in deletedIds, "Deleted beer with ID ${beer.id} should not exist")
-                assertTrue(beer.id in testCreatedIds, "Remaining beer should be one we created")
+                assertTrue(beer.id in remainingIds, "Remaining beer should be one we created")
             }
         }
     }
@@ -485,11 +407,11 @@ class BeerIntegrationTest {
         // Given - Create diverse test data
         val createDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(100, "ComplexSearchTest")
         val createdBeers = beerService.saveNewEntities(createDTOs)
-        testCreatedIds.addAll(createdBeers.map { it.id })
+        val createdBeerIds = createdBeers.map { it.id }
 
         // Use generator to create random search request but limit to our created beers
         val searchRequest = BeerSearchRequest(
-            ids = createdBeers.map { it.id } // Only search within our created beers
+            ids = createdBeerIds // Only search within our created beers
         )
 
         // When & Then
@@ -508,7 +430,7 @@ class BeerIntegrationTest {
 
         // Verify search criteria are respected
         foundBeers.forEach { beer ->
-            assertTrue(beer.id in testCreatedIds, "Found beer should be one we created")
+            assertTrue(beer.id in createdBeerIds, "Found beer should be one we created")
 
             searchRequest.minPrice?.let { minPrice ->
                 assertTrue(beer.price >= minPrice, "Beer price ${beer.price} should be >= $minPrice")
@@ -536,7 +458,7 @@ class BeerIntegrationTest {
         // Given - Create beers with unique names
         val createDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(20, uniqueTestPrefix)
         val createdBeers = beerService.saveNewEntities(createDTOs)
-        testCreatedIds.addAll(createdBeers.map { it.id })
+        val createdBeerIds = createdBeers.map { it.id }
 
         // When - Search by name prefix
         val searchRequest = BeerSearchRequest(
@@ -564,7 +486,7 @@ class BeerIntegrationTest {
                 beer.beerName.contains(uniqueTestPrefix),
                 "Beer name '${beer.beerName}' should contain '$uniqueTestPrefix'"
             )
-            assertTrue(beer.id in testCreatedIds, "Found beer should be one we created")
+            assertTrue(beer.id in createdBeerIds, "Found beer should be one we created")
         }
     }
 

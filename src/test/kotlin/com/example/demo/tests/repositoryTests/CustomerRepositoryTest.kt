@@ -3,15 +3,14 @@ package com.example.demo.tests.repositoryTests
 import com.example.demo.TestContainersConfiguration
 import com.example.demo.domain.Customer
 import com.example.demo.generators.CustomerTestDataGenerator
+import com.example.demo.mappers.CustomerMapper
 import com.example.demo.repositories.CustomerRepository
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
-import org.komapper.r2dbc.R2dbcDatabase
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
@@ -29,36 +28,14 @@ import kotlin.test.assertTrue
 class CustomerRepositoryTest {
 
     @Autowired
-    private lateinit var database: R2dbcDatabase
     private lateinit var customerRepository: CustomerRepository
 
-    private var initialized = false
+    @Autowired
+    private lateinit var customerMapper: CustomerMapper
 
-    // Test-specific data tracking
-    private val testCreatedIds = mutableSetOf<Long>()
-
-    @BeforeEach
-    fun setUp() = runTest {
-        if (!initialized) {
-            customerRepository = CustomerRepository(database)
-            initialized = true
-        }
-        testCreatedIds.clear()
-    }
-
-    // Helper function to convert CustomerCreateDTO to Customer domain object
-    private fun createDTOToCustomer(dto: com.example.demo.model.CustomerCreateDTO): Customer {
-        return Customer(
-            id = 0L,
-            customerName = dto.customerName
-        )
-    }
-
-    // Helper to track and insert customers for current test
+    // Helper to insert customers for current test
     private suspend fun insertTestCustomers(customers: List<Customer>): List<Customer> {
-        val inserted = customerRepository.insertEntities(customers)
-        testCreatedIds.addAll(inserted.map { it.id })
-        return inserted
+        return customerRepository.insertEntities(customers)
     }
 
     @ParameterizedTest
@@ -68,7 +45,7 @@ class CustomerRepositoryTest {
         val testUuid = UUID.randomUUID().toString()
         val randomCustomerDTOs =
             CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(count, "BatchInsert $testUuid")
-        val randomCustomers = randomCustomerDTOs.map { createDTOToCustomer(it) }
+        val randomCustomers = randomCustomerDTOs.map { customerMapper.customerCreateDtoToCustomer(it) }
 
         // When
         val insertedCustomers = insertTestCustomers(randomCustomers)
@@ -102,7 +79,7 @@ class CustomerRepositoryTest {
         val totalDataCount = max(size * page + 10, 60)
         val totalCustomerDTOs =
             CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(totalDataCount, "Pagination $testUuid")
-        val totalCustomers = totalCustomerDTOs.map { createDTOToCustomer(it) }
+        val totalCustomers = totalCustomerDTOs.map { customerMapper.customerCreateDtoToCustomer(it) }
         val insertedCustomers = insertTestCustomers(totalCustomers)
 
         // When - Get entities by IDs with pagination, handling 100 ID limit per request
@@ -160,7 +137,7 @@ class CustomerRepositoryTest {
         val testUuid = UUID.randomUUID().toString()
         val randomCustomerDTOs =
             CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(datasetSize, "NameFilter $testUuid")
-        val randomCustomers = randomCustomerDTOs.map { createDTOToCustomer(it) }
+        val randomCustomers = randomCustomerDTOs.map { customerMapper.customerCreateDtoToCustomer(it) }
         val insertedCustomers = insertTestCustomers(randomCustomers)
         val targetCustomer = insertedCustomers.random()
 
@@ -177,7 +154,7 @@ class CustomerRepositoryTest {
         )
         filteredCustomers.forEach { customer ->
             assertEquals(targetCustomer.customerName, customer.customerName)
-            assertTrue(testCreatedIds.contains(customer.id), "Customer should belong to this test")
+            assertTrue(insertedCustomers.any { it.id == customer.id }, "Customer should belong to this test")
         }
         // Verify the specific customer is in the results
         assertTrue(filteredCustomers.any { it.id == targetCustomer.id })
@@ -200,7 +177,7 @@ class CustomerRepositoryTest {
         val otherCount = totalCount - matchingCount
         val otherCustomerDTOs =
             CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(otherCount, "Other $testUuid")
-        val otherCustomers = otherCustomerDTOs.map { createDTOToCustomer(it) }
+        val otherCustomers = otherCustomerDTOs.map { customerMapper.customerCreateDtoToCustomer(it) }
 
         val allInserted = insertTestCustomers(specificCustomers + otherCustomers)
 
@@ -220,7 +197,7 @@ class CustomerRepositoryTest {
                 customer.customerName.contains(testUuid, ignoreCase = true),
                 "Customer name '${customer.customerName}' should contain '$testUuid'"
             )
-            assertTrue(testCreatedIds.contains(customer.id), "Customer should belong to this test")
+            assertTrue(allInserted.any { it.id == customer.id }, "Customer should belong to this test")
         }
     }
 
@@ -231,7 +208,7 @@ class CustomerRepositoryTest {
         val testUuid = UUID.randomUUID().toString()
         val originalCustomerDTOs =
             CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(datasetSize, "PatchTest $testUuid")
-        val originalCustomers = originalCustomerDTOs.map { createDTOToCustomer(it) }
+        val originalCustomers = originalCustomerDTOs.map { customerMapper.customerCreateDtoToCustomer(it) }
         val insertedCustomers = insertTestCustomers(originalCustomers)
 
         // Update between 30% to 70% of the customers dynamically
@@ -251,7 +228,10 @@ class CustomerRepositoryTest {
 
         updateDTOs.forEach { updateDTO ->
             val updatedCustomer = updatedCustomers.first { it.id == updateDTO.id }
-            assertTrue(testCreatedIds.contains(updatedCustomer.id), "Updated customer should belong to this test")
+            assertTrue(
+                insertedCustomers.any { it.id == updatedCustomer.id },
+                "Updated customer should belong to this test"
+            )
 
             updateDTO.customerName?.let { assertEquals(it, updatedCustomer.customerName) }
         }
@@ -264,7 +244,7 @@ class CustomerRepositoryTest {
         val testUuid = UUID.randomUUID().toString()
         val originalCustomerDTOs =
             CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(datasetSize, "DeleteTest $testUuid")
-        val originalCustomers = originalCustomerDTOs.map { createDTOToCustomer(it) }
+        val originalCustomers = originalCustomerDTOs.map { customerMapper.customerCreateDtoToCustomer(it) }
         val insertedCustomers = insertTestCustomers(originalCustomers)
 
         // Delete between 20% to 60% of customers dynamically
@@ -283,16 +263,12 @@ class CustomerRepositoryTest {
 
         remainingTestCustomers.forEach { customer ->
             assertTrue(customer.id !in deletedIds, "Deleted customer with ID ${customer.id} should not exist")
-            assertTrue(testCreatedIds.contains(customer.id), "Remaining customer should belong to this test")
         }
 
         assertEquals(
             expectedRemainingCount, remainingTestCustomers.size,
             "Should have exactly $expectedRemainingCount customers remaining from our test data"
         )
-
-        // Update our tracking
-        testCreatedIds.removeAll(deletedIds)
     }
 
     @ParameterizedTest
@@ -302,12 +278,11 @@ class CustomerRepositoryTest {
         val testUuid = UUID.randomUUID().toString()
         val randomCustomerDTOs =
             CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(datasetSize, "MultiFilter $testUuid")
-        val randomCustomers = randomCustomerDTOs.map { createDTOToCustomer(it) }
+        val randomCustomers = randomCustomerDTOs.map { customerMapper.customerCreateDtoToCustomer(it) }
         val insertedCustomers = insertTestCustomers(randomCustomers)
 
         // Create filters that should reasonably match some of the data
         val randomNamePart = testUuid.take(6) // Use part of our test UUID
-        insertedCustomers.random()
 
         // When - Test multiple filters that work with Customer model
         val filteredCustomers = customerRepository.getEntities(
@@ -321,7 +296,7 @@ class CustomerRepositoryTest {
                 customer.customerName.contains(randomNamePart, ignoreCase = true),
                 "Customer name '${customer.customerName}' should contain '$randomNamePart'"
             )
-            assertTrue(testCreatedIds.contains(customer.id), "Customer should belong to this test")
+            assertTrue(insertedCustomers.any { it.id == customer.id }, "Customer should belong to this test")
         }
 
         // Verify the filter is working by checking manual count
@@ -344,7 +319,7 @@ class CustomerRepositoryTest {
         } else {
             val customerDTOs =
                 CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(count, "VariousSize $testUuid")
-            customerDTOs.map { createDTOToCustomer(it) }
+            customerDTOs.map { customerMapper.customerCreateDtoToCustomer(it) }
         }
 
         // When
@@ -359,7 +334,6 @@ class CustomerRepositoryTest {
 
             result.forEach { customer ->
                 assertTrue(customer.id > 0L)
-                assertTrue(testCreatedIds.contains(customer.id))
             }
         }
     }
@@ -371,7 +345,7 @@ class CustomerRepositoryTest {
         val testUuid = UUID.randomUUID().toString()
         val largeCustomerDTOs =
             CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(datasetSize, "StressTest $testUuid")
-        val largeDataset = largeCustomerDTOs.map { createDTOToCustomer(it) }
+        val largeDataset = largeCustomerDTOs.map { customerMapper.customerCreateDtoToCustomer(it) }
 
         // When - Insert
         val insertedCustomers = insertTestCustomers(largeDataset)
@@ -400,15 +374,11 @@ class CustomerRepositoryTest {
             "Should have exactly $expectedRemainingCount customers after operations on $datasetSize dataset"
         )
 
-        // Verify no deleted customers remain and all remaining belong to this test
+        // Verify no deleted customers remain
         val deletedIds = randomDeletions.toSet()
         finalCustomers.forEach { customer ->
             assertTrue(customer.id !in deletedIds, "Deleted customer should not exist")
-            assertTrue(testCreatedIds.contains(customer.id), "Remaining customer should belong to this test")
         }
-
-        // Update tracking
-        testCreatedIds.removeAll(deletedIds)
     }
 
     // Optional: Test for handling concurrent operations on different datasets
@@ -421,8 +391,8 @@ class CustomerRepositoryTest {
         val dataset1DTOs = CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(10, "Concurrent1 $testUuid1")
         val dataset2DTOs = CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(10, "Concurrent2 $testUuid2")
 
-        val dataset1 = dataset1DTOs.map { createDTOToCustomer(it) }
-        val dataset2 = dataset2DTOs.map { createDTOToCustomer(it) }
+        val dataset1 = dataset1DTOs.map { customerMapper.customerCreateDtoToCustomer(it) }
+        val dataset2 = dataset2DTOs.map { customerMapper.customerCreateDtoToCustomer(it) }
 
         // Insert both datasets
         val inserted1 = customerRepository.insertEntities(dataset1)

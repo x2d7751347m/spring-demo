@@ -3,20 +3,14 @@ package com.example.demo.tests.integrationTests
 import com.example.demo.TestContainersConfiguration
 import com.example.demo.controllers.CustomerController
 import com.example.demo.generators.CustomerTestDataGenerator
-import com.example.demo.mappers.CustomerMapper
 import com.example.demo.model.*
-import com.example.demo.repositories.CustomerRepository
 import com.example.demo.services.CustomerService
-import com.example.demo.services.CustomerServiceImpl
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
-import org.komapper.r2dbc.R2dbcDatabase
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
@@ -34,53 +28,11 @@ import kotlin.test.assertTrue
 @Import(TestContainersConfiguration::class)
 class CustomerIntegrationTest {
 
+    @Autowired
     private lateinit var webTestClient: WebTestClient
 
     @Autowired
-    private lateinit var database: R2dbcDatabase
-
-    private lateinit var customerRepository: CustomerRepository
     private lateinit var customerService: CustomerService
-    private lateinit var customerController: CustomerController
-
-    @Autowired
-    private lateinit var customerMapper: CustomerMapper
-
-    private var initialized = false
-
-    // Track created IDs for each test to avoid interference
-    private val testCreatedIds = mutableSetOf<Long>()
-
-    @BeforeEach
-    fun setUp() = runTest {
-        if (!initialized) {
-            customerRepository = CustomerRepository(database)
-            customerService = CustomerServiceImpl(customerRepository, customerMapper)
-            customerController = CustomerController(customerService)
-
-            webTestClient = WebTestClient
-                .bindToController(customerController)
-                .configureClient()
-                .build()
-            initialized = true
-        }
-
-        // Clear test tracking for each test
-        testCreatedIds.clear()
-    }
-
-    @AfterEach
-    fun tearDown() = runTest {
-        // Clean up only the data created in this specific test
-        if (testCreatedIds.isNotEmpty()) {
-            try {
-                customerService.deleteEntitiesById(testCreatedIds.toList())
-            } catch (e: Exception) {
-                // Ignore cleanup errors - some tests might have already deleted the data
-            }
-        }
-        testCreatedIds.clear()
-    }
 
     // CREATE Tests - Parameterized with various counts
     @ParameterizedTest
@@ -105,9 +57,6 @@ class CustomerIntegrationTest {
         val createdCustomers = serviceResult.value
         assertEquals(count, createdCustomers.size)
 
-        // Track created IDs for cleanup
-        testCreatedIds.addAll(createdCustomers.map { it.id })
-
         // Verify all created customers have valid properties
         createdCustomers.forEach { customer ->
             assertTrue(customer.id > 0L)
@@ -129,7 +78,6 @@ class CustomerIntegrationTest {
         val totalCustomers = 100
         val createDTOs = CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(totalCustomers, "PaginationTest")
         val createdCustomers = customerService.saveNewEntities(createDTOs)
-        testCreatedIds.addAll(createdCustomers.map { it.id })
 
         val searchRequest = CustomerSearchRequest(
             ids = createdCustomers.map { it.id } // Only search within our created customers
@@ -154,7 +102,10 @@ class CustomerIntegrationTest {
 
         foundCustomers.forEach { customer ->
             assertTrue(customer.id > 0L)
-            assertTrue(customer.id in testCreatedIds, "Found customer should be one we created in this test")
+            assertTrue(
+                customer.id in createdCustomers.map { it.id },
+                "Found customer should be one we created in this test"
+            )
         }
     }
 
@@ -174,7 +125,6 @@ class CustomerIntegrationTest {
         val createDTOs =
             CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(totalCustomers, "PatchTest-$totalCustomers")
         val createdCustomers = customerService.saveNewEntities(createDTOs)
-        testCreatedIds.addAll(createdCustomers.map { it.id })
 
         val updateDTOs =
             CustomerTestDataGenerator.generateRandomCustomerUpdateDTOs(createdCustomers.map { it.id }, updateRatio)
@@ -221,7 +171,6 @@ class CustomerIntegrationTest {
         val createDTOs =
             CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(totalCustomers, "DeleteTest-$deleteCount")
         val createdCustomers = customerService.saveNewEntities(createDTOs)
-        testCreatedIds.addAll(createdCustomers.map { it.id })
 
         val customersToDelete = createdCustomers.shuffled().take(deleteCount)
         val idsToDelete = customersToDelete.map { it.id }
@@ -235,13 +184,10 @@ class CustomerIntegrationTest {
             .exchange()
             .expectStatus().isNoContent
 
-        // Remove deleted IDs from our tracking (they're already deleted)
-        testCreatedIds.removeAll(idsToDelete.toSet())
-
-        // Verify deletion - search only within remaining IDs we created
-        val remainingIds = testCreatedIds.toList()
+        // Verify deletion - search only within remaining IDs
+        val remainingIds = createdCustomers.map { it.id } - idsToDelete.toSet()
         if (remainingIds.isNotEmpty()) {
-            val searchRequest = CustomerSearchRequest(page = 1, size = totalCustomers, ids = remainingIds)
+            val searchRequest = CustomerSearchRequest(page = 1, size = totalCustomers, ids = remainingIds.toList())
             val remainingCustomers = customerService.getEntities(searchRequest).toList()
             val deletedIds = idsToDelete.toSet()
 
@@ -254,7 +200,6 @@ class CustomerIntegrationTest {
 
             remainingCustomers.forEach { customer ->
                 assertTrue(customer.id !in deletedIds, "Deleted customer with ID ${customer.id} should not exist")
-                assertTrue(customer.id in testCreatedIds, "Remaining customer should be one we created")
             }
         }
     }
@@ -289,7 +234,6 @@ class CustomerIntegrationTest {
         assertTrue(serviceResult is ServiceResult.Ok)
         val createdCustomers = serviceResult.value
         assertEquals(createCount, createdCustomers.size)
-        testCreatedIds.addAll(createdCustomers.map { it.id })
 
         // Step 2: Search for created customers using their IDs
         val searchRequest = CustomerSearchRequest(
@@ -334,16 +278,13 @@ class CustomerIntegrationTest {
             .exchange()
             .expectStatus().isNoContent
 
-        // Remove deleted IDs from tracking
-        testCreatedIds.removeAll(idsToDelete.toSet())
-
         // Step 5: Verify final state - search only remaining IDs
-        val remainingIds = testCreatedIds.toList()
+        val remainingIds = createdCustomers.map { it.id } - idsToDelete.toSet()
         if (remainingIds.isNotEmpty()) {
             val finalSearchRequest = CustomerSearchRequest(
                 page = 1,
                 size = createCount + 50,
-                ids = remainingIds
+                ids = remainingIds.toList()
             )
             val finalSearchResponse = webTestClient
                 .post()
@@ -365,7 +306,6 @@ class CustomerIntegrationTest {
             val deletedIds = idsToDelete.toSet()
             finalCustomers.forEach { customer ->
                 assertTrue(customer.id !in deletedIds, "Deleted customer with ID ${customer.id} should not exist")
-                assertTrue(customer.id in testCreatedIds, "Remaining customer should be one we created")
             }
         }
     }
@@ -514,7 +454,6 @@ class CustomerIntegrationTest {
         // Given - Create customers with unique names
         val createDTOs = CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(20, uniqueTestPrefix)
         val createdCustomers = customerService.saveNewEntities(createDTOs)
-        testCreatedIds.addAll(createdCustomers.map { it.id })
 
         // When - Search by name prefix
         val searchRequest = CustomerSearchRequest(
@@ -542,7 +481,6 @@ class CustomerIntegrationTest {
                 customer.customerName.contains(uniqueTestPrefix),
                 "Customer name '${customer.customerName}' should contain '$uniqueTestPrefix'"
             )
-            assertTrue(customer.id in testCreatedIds, "Found customer should be one we created")
         }
     }
 
@@ -556,7 +494,6 @@ class CustomerIntegrationTest {
 
         val allDTOs = listOf(exactNameDTO) + otherDTOs
         val createdCustomers = customerService.saveNewEntities(allDTOs)
-        testCreatedIds.addAll(createdCustomers.map { it.id })
 
         // When - Search by exact name
         val searchRequest = CustomerSearchRequest(
@@ -586,7 +523,6 @@ class CustomerIntegrationTest {
         // Given - Create test data
         val createDTOs = CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(30, testPrefix)
         val createdCustomers = customerService.saveNewEntities(createDTOs)
-        testCreatedIds.addAll(createdCustomers.map { it.id })
 
         // When - Search with combined criteria (specific IDs + name contains)
         val selectedIds = createdCustomers.take(10).map { it.id }
