@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service
 
 @Service
 class DatabaseInitService(
-//    @Qualifier("initialR2dbcDatabase") private val initialDatabase: R2dbcDatabase,
 //    @Qualifier("writeDatabase")
     private val writeDatabase: R2dbcDatabase,
     private val databaseProperties: DatabaseProperties,
