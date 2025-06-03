@@ -5,6 +5,7 @@ import com.example.demo.controllers.BeerController
 import com.example.demo.generators.BeerTestDataGenerator
 import com.example.demo.model.*
 import com.example.demo.services.BeerService
+import com.example.demo.testUtils.calculateExpectedPageSize
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
@@ -19,8 +20,10 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.reactive.server.WebTestClient
 import org.springframework.test.web.reactive.server.expectBody
 import org.springframework.test.web.reactive.server.expectBodyList
+import org.springframework.test.web.reactive.server.returnResult
 import org.testcontainers.junit.jupiter.Testcontainers
 import java.math.BigDecimal
+import java.util.*
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -81,27 +84,36 @@ class BeerIntegrationTest {
     fun `POST listBeers should handle various pagination parameters`(page: Int, size: Int) = runTest {
         // Given - Create enough test data to support pagination
         val totalBeers = 100
-        val createDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(totalBeers, "PaginationTest")
+        val prefix = "PaginationTest_${UUID.randomUUID()}"
+        val createDTOs = BeerTestDataGenerator.generateRandomBeerCreateDTOs(totalBeers, prefix)
         val createdBeers = beerService.saveNewEntities(createDTOs)
         val createdBeerIds = createdBeers.map { it.id }
 
         val searchRequest = BeerSearchRequest(
-            ids = createdBeerIds // Only search within our created beers
+            beerNameContains = prefix.take(30), // Only search within our created beers
+            page = page,
+            size = size
         )
 
         // When & Then
-        val response = webTestClient
+        val foundBeers = webTestClient
             .post()
             .uri("${BeerController.BEER_PATH}/get")
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(searchRequest)
             .exchange()
             .expectStatus().isOk
-            .expectBodyList<BeerDTO>()
-            .returnResult()
+            .returnResult<BeerDTO>()
+            .responseBody
+            .collectList()
+            .block()!!
 
-        val foundBeers = response.responseBody!!
-        assertTrue(foundBeers.size <= size, "Found ${foundBeers.size} beers, but requested size was $size")
+        val expectedSize = calculateExpectedPageSize(totalBeers, page, size)
+
+        assertEquals(
+            expectedSize, foundBeers.size,
+            "Expected exactly $expectedSize beers for page $page with size $size"
+        )
 
         foundBeers.forEach { beer ->
             assertTrue(beer.id > 0L)

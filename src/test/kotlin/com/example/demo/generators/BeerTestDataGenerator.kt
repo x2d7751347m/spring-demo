@@ -12,8 +12,8 @@ object BeerTestDataGenerator {
     fun generateRandomBeerCreateDTOs(count: Int, prefix: String = "ControllerTest"): List<BeerCreateDTO> {
         return (1..count).map {
             BeerCreateDTO(
-                beerName = "$prefix-BeerName-${UUID.randomUUID()}".take(50),
-                beerStyle = "Style-${UUID.randomUUID()}".take(30),
+                beerName = "BeerName-$prefix".take(50),
+                beerStyle = "Style-$prefix".take(30),
                 upc = generateRandomUPC(),
                 quantityOnHand = Random.nextInt(1, 1000),
                 price = generateRandomPrice()

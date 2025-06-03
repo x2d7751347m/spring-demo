@@ -5,6 +5,7 @@ import com.example.demo.controllers.CustomerController
 import com.example.demo.generators.CustomerTestDataGenerator
 import com.example.demo.model.*
 import com.example.demo.services.CustomerService
+import com.example.demo.testUtils.calculateExpectedPageSize
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
@@ -19,6 +20,7 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.reactive.server.WebTestClient
 import org.springframework.test.web.reactive.server.expectBody
 import org.springframework.test.web.reactive.server.expectBodyList
+import org.springframework.test.web.reactive.server.returnResult
 import org.testcontainers.junit.jupiter.Testcontainers
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -76,28 +78,34 @@ class CustomerIntegrationTest {
     fun `POST listCustomers should handle various pagination parameters`(page: Int, size: Int) = runTest {
         // Given - Create enough test data to support pagination
         val totalCustomers = 100
-        val createDTOs = CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(totalCustomers, "PaginationTest")
+        val prefix = CustomerTestDataGenerator.generateRandomCustomerName("PaginationTest")
+        val createDTOs = CustomerTestDataGenerator.generateRandomCustomerCreateDTOs(totalCustomers, prefix)
         val createdCustomers = customerService.saveNewEntities(createDTOs)
 
         val searchRequest = CustomerSearchRequest(
-            ids = createdCustomers.map { it.id } // Only search within our created customers
+            customerNameContains = prefix, // Only search within our created customers
+            page = page,
+            size = size
         )
 
         // When & Then
-        val response = webTestClient
+        val foundCustomers = webTestClient
             .post()
             .uri("${CustomerController.CUSTOMER_PATH}/get")
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(searchRequest)
             .exchange()
             .expectStatus().isOk
-            .expectBodyList<CustomerDTO>()
-            .returnResult()
+            .returnResult<CustomerDTO>()
+            .responseBody
+            .collectList()
+            .block()!!
 
-        val foundCustomers = response.responseBody!!
-        assertTrue(
-            foundCustomers.size <= createdCustomers.size,
-            "Found ${foundCustomers.size} customers, but requested size was $size"
+        val expectedSize = calculateExpectedPageSize(totalCustomers, page, size)
+
+        assertEquals(
+            expectedSize, foundCustomers.size,
+            "Expected exactly $expectedSize customers for page $page with size $size"
         )
 
         foundCustomers.forEach { customer ->

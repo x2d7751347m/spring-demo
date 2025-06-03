@@ -13,7 +13,7 @@ object CustomerTestDataGenerator {
         return (1..count).map {
             var customerName: String
             do {
-                customerName = generateRandomCustomerName(prefix.take(20))
+                customerName = "Name $prefix $it"
             } while (!usedNames.add(customerName))
 
             CustomerCreateDTO(
@@ -41,10 +41,10 @@ object CustomerTestDataGenerator {
         }
     }
 
-    private fun generateRandomCustomerName(prefix: String): String {
+    public fun generateRandomCustomerName(prefix: String): String {
         val allowedChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz "
         val randomSuffix = (1..10).map { allowedChars.random() }.joinToString("")
 
-        return "$prefix $randomSuffix".take(50)
+        return "$prefix $randomSuffix".take(30)
     }
 }
